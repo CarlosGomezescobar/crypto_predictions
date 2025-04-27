@@ -591,15 +591,83 @@ export const prepareScatterChartData = (
           },
           ticks: {
             color: isDarkMode ? '#D1D5DB' : '#4B5563',
+            maxRotation: 45,
+            minRotation: 45,
           },
           title: {
             display: !!options?.xAxisLabel,
             text: options?.xAxisLabel || '',
             color: isDarkMode ? '#E5E7EB' : '#1F2937',
-          }
+          },
         },
         y: {
           grid: {
             color: isDarkMode ? '#374151' : '#E5E7EB',
-       
-(Content truncated due to size limit. Use line ranges to read in chunks)
+            drawBorder: false,
+          },
+          ticks: {
+            color: isDarkMode ? '#D1D5DB' : '#4B5563',
+          },
+          title: {
+            display: !!options?.yAxisLabel,
+            text: options?.yAxisLabel || '',
+            color: isDarkMode ? '#E5E7EB' : '#1F2937',
+          },
+        },
+      },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          labels: {
+            color: isDarkMode ? '#D1D5DB' : '#4B5563',
+            usePointStyle: true,
+            pointStyle: 'circle',
+          },
+        },
+        tooltip: {
+          enabled: true,
+          mode: 'index',
+          intersect: false,
+          backgroundColor: isDarkMode ? '#374151' : '#FFFFFF',
+          titleColor: isDarkMode ? '#F3F4F6' : '#111827',
+          bodyColor: isDarkMode ? '#D1D5DB' : '#4B5563',
+          borderColor: isDarkMode ? '#4B5563' : '#E5E7EB',
+          borderWidth: 1,
+          padding: 10,
+          boxPadding: 5,
+          callbacks: {
+            label: (context) => {
+              const label = context.dataset.label || '';
+              const value = context.parsed.y || 0;
+              return `${label}: ${value.toFixed(2)}`;
+            },
+          },
+        },
+        title: {
+          display: !!options?.title,
+          text: options?.title || '',
+          color: isDarkMode ? '#E5E7EB' : '#1F2937',
+          font: {
+            size: 16,
+            weight: 'bold',
+          },
+        },
+      },
+      interaction: {
+        mode: 'nearest',
+        axis: 'x',
+        intersect: false,
+      },
+      elements: {
+        line: {
+          tension: 0.4, // Curva suave para gráficos de línea
+        },
+        point: {
+          radius: 3,
+          hoverRadius: 5,
+        },
+      }
+    }
+  }
+}  

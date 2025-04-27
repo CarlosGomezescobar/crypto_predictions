@@ -642,9 +642,92 @@ export const VolumeProfileChart: React.FC<VolumeProfileChartProps> = ({
     const minPrice = Math.min(...data.prices);
     const maxPrice = Math.max(...data.prices);
     const binSize = (maxPrice - minPrice) / bins;
-    
+
     const volumeProfile: number[] = Array(bins).fill(0);
     const binLabels: string[] = [];
-    
-    // Crear etiqu
-(Content truncated due to size limit. Use line ranges to read in chunks)
+
+    // Crear etiquetas y acumular volúmenes en cada bin
+    for (let i = 0; i < bins; i++) {
+      const lowerBound = minPrice + i * binSize;
+      const upperBound = minPrice + (i + 1) * binSize;
+      binLabels.push(`${lowerBound.toFixed(2)} - ${upperBound.toFixed(2)}`);
+
+      for (let j = 0; j < data.prices.length; j++) {
+        if (data.prices[j] >= lowerBound && data.prices[j] < upperBound) {
+          volumeProfile[i] += data.volumes[j];
+        }
+      }
+    }
+
+    // Preparar datos para el gráfico
+    const chartData = {
+      labels: binLabels,
+      datasets: [
+        {
+          label: 'Volumen',
+          data: volumeProfile,
+          backgroundColor: isDarkMode ? '#4CAF50' : '#8BC34A',
+          borderColor: isDarkMode ? '#388E3C' : '#689F38',
+          borderWidth: 1,
+        },
+      ],
+    };
+
+    // Configuración de opciones del gráfico
+    const chartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false,
+        },
+        tooltip: {
+          enabled: true,
+          callbacks: {
+            label: (context: any) => {
+              const label = context.label || '';
+              const value = context.raw || 0;
+              return `${label}: ${value.toFixed(2)}`;
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: {
+            color: isDarkMode ? '#4B5563' : '#E5E7EB',
+          },
+          ticks: {
+            color: isDarkMode ? '#D1D5DB' : '#4B5563',
+          },
+        },
+        y: {
+          beginAtZero: true,
+          grid: {
+            color: isDarkMode ? '#4B5563' : '#E5E7EB',
+          },
+          ticks: {
+            color: isDarkMode ? '#D1D5DB' : '#4B5563',
+          },
+        },
+      },
+    };
+
+    setChartData(chartData);
+    setChartOptions(chartOptions);
+  }, [data, bins, isDarkMode]);
+
+  if (!chartData || !chartOptions) {
+    return (
+      <div className="flex justify-center items-center" style={{ height, width }}>
+        <LoadingSpinner size="large" />
+      </div>
+    );
+  }
+
+  return (
+    <div className={`${className}`} style={{ height, width }}>
+      <Bar data={chartData} options={chartOptions} />
+    </div>
+  );
+};

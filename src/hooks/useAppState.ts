@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { TradingSignal } from '../types';
 import { TimeFrame, CryptoAsset, UserSettings, NotificationSettings } from '../types';
 
 /**
@@ -503,10 +504,45 @@ export const usePredictionHistory = () => {
   };
 };
 
-/**
- * Hook para gestionar el historial de señales de trading
- * @returns Historial de señales y funciones para actualizarlo
- */
 export const useTradingSignalHistory = () => {
-  const { value: history, setValue
-(Content truncated due to size limit. Use line ranges to read in chunks)
+  const [history, setHistory] = useState<TradingSignal[]>([]);
+
+  // Añadir una nueva señal de trading al historial
+  const addSignal = useCallback((signal: TradingSignal) => {
+    setHistory((prev) => {
+      const newHistory = [signal, ...prev]; // Añadir al inicio del historial
+      return newHistory.slice(0, 50); // Mantener solo las 50 señales más recientes
+    });
+  }, []);
+
+  // Actualizar una señal existente en el historial
+  const updateSignal = useCallback((index: number, updatedSignal: Partial<TradingSignal>) => {
+    setHistory((prev) => {
+      if (index < 0 || index >= prev.length) return prev; // Validar índice
+      const newHistory = [...prev];
+      newHistory[index] = { ...newHistory[index], ...updatedSignal }; // Actualizar señal
+      return newHistory;
+    });
+  }, []);
+
+  // Eliminar una señal del historial
+  const removeSignal = useCallback((index: number) => {
+    setHistory((prev) => {
+      if (index < 0 || index >= prev.length) return prev; // Validar índice
+      return [...prev.slice(0, index), ...prev.slice(index + 1)]; // Eliminar señal
+    });
+  }, []);
+
+  // Limpiar todo el historial
+  const clearHistory = useCallback(() => {
+    setHistory([]); // Vaciar el historial
+  }, []);
+
+  return {
+    signalHistory: history,
+    addSignal,
+    updateSignal,
+    removeSignal,
+    clearHistory,
+  };
+};

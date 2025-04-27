@@ -632,6 +632,172 @@ export const formatCurrency = (
     if (data.length === 0) {
       return [];
     }
-    
-    const res
-  (Content truncated due to size limit. Use line ranges to read in chunks)
+  
+    const result: { timestamp: number; value: number }[] = [];
+    let currentIntervalStart = Math.floor(data[0][timestampKey] / interval) * interval;
+    let sum = 0;
+    let count = 0;
+  
+    for (const item of data) {
+      const timestamp = item[timestampKey];
+      const value = item[valueKey];
+  
+      // Si estamos dentro del mismo intervalo, acumulamos los valores
+      if (Math.floor(timestamp / interval) * interval === currentIntervalStart) {
+        sum += value;
+        count++;
+      } else {
+        // Guardamos el promedio del intervalo anterior
+        if (count > 0) {
+          result.push({ timestamp: currentIntervalStart, value: sum / count });
+        }
+  
+        // Comenzamos un nuevo intervalo
+        currentIntervalStart = Math.floor(timestamp / interval) * interval;
+        sum = value;
+        count = 1;
+      }
+    }
+  
+    // Añadimos el último intervalo
+    if (count > 0) {
+      result.push({ timestamp: currentIntervalStart, value: sum / count });
+    }
+  
+    return result;
+  };
+  /**
+ * Calcula el cambio porcentual acumulado entre dos series de datos
+ * @param data1 Array de datos inicial
+ * @param data2 Array de datos final
+ * @returns Cambio porcentual acumulado
+ */
+export const calculateCumulativePercentChange = (
+  data1: number[],
+  data2: number[]
+): number => {
+  if (data1.length !== data2.length || data1.length === 0) {
+    return 0;
+  }
+
+  const initialSum = data1.reduce((sum, value) => sum + value, 0);
+  const finalSum = data2.reduce((sum, value) => sum + value, 0);
+
+  return ((finalSum - initialSum) / initialSum) * 100;
+};
+/**
+ * Detecta cruces entre dos series de datos
+ * @param shortSeries Serie corta (ej. SMA 50)
+ * @param longSeries Serie larga (ej. SMA 200)
+ * @returns Array de señales de cruce
+ */
+export const detectCrosses = (
+  shortSeries: number[],
+  longSeries: number[]
+): { index: number; type: 'golden' | 'death' }[] => {
+  const signals: { index: number; type: 'golden' | 'death' }[] = [];
+
+  for (let i = 1; i < shortSeries.length; i++) {
+    const prevShort = shortSeries[i - 1];
+    const currShort = shortSeries[i];
+    const prevLong = longSeries[i - 1];
+    const currLong = longSeries[i];
+
+    if (prevShort <= prevLong && currShort > currLong) {
+      signals.push({ index: i, type: 'golden' });
+    } else if (prevShort >= prevLong && currShort < currLong) {
+      signals.push({ index: i, type: 'death' });
+    }
+  }
+
+  return signals;
+};
+/**
+ * Calcula la volatilidad histórica
+ * @param prices Array de precios
+ * @param period Período para calcular la volatilidad
+ * @returns Volatilidad histórica
+ */
+export const calculateHistoricalVolatility = (
+  prices: number[],
+  period: number = 30
+): number => {
+  if (prices.length < period) {
+    return 0;
+  }
+
+  const logReturns = [];
+  for (let i = 1; i < prices.length; i++) {
+    logReturns.push(Math.log(prices[i] / prices[i - 1]));
+  }
+
+  const meanLogReturn =
+    logReturns.slice(-period).reduce((sum, value) => sum + value, 0) / period;
+  const squaredDeviations = logReturns
+    .slice(-period)
+    .map((logReturn) => Math.pow(logReturn - meanLogReturn, 2));
+  const variance =
+    squaredDeviations.reduce((sum, value) => sum + value, 0) / period;
+
+  return Math.sqrt(variance) * Math.sqrt(365); // Anualizada
+};
+/**
+ * Normaliza un array de datos
+ * @param data Array de datos
+ * @returns Array normalizado
+ */
+export const normalizeData = (data: number[]): number[] => {
+  if (data.length === 0) {
+    return [];
+  }
+
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+
+  if (max === min) {
+    return data.map(() => 1); // Evitar división por cero
+  }
+
+  return data.map((value) => (value - min) / (max - min));
+};
+/**
+ * Calcula el RSI (Relative Strength Index) optimizado
+ * @param data Array de datos
+ * @param period Período para el RSI
+ * @returns Array con el RSI
+ */
+export const calculateOptimizedRSI = (
+  data: number[],
+  period: number = 14
+): number[] => {
+  const result: number[] = [];
+  const changes: number[] = [];
+
+  for (let i = 1; i < data.length; i++) {
+    changes.push(data[i] - data[i - 1]);
+  }
+
+  const gains = changes.map((change) => (change > 0 ? change : 0));
+  const losses = changes.map((change) => (change < 0 ? Math.abs(change) : 0));
+
+  for (let i = 0; i < data.length; i++) {
+    if (i < period) {
+      result.push(NaN);
+      continue;
+    }
+
+    const avgGain =
+      gains.slice(i - period, i).reduce((sum, gain) => sum + gain, 0) / period;
+    const avgLoss =
+      losses.slice(i - period, i).reduce((sum, loss) => sum + loss, 0) / period;
+
+    if (avgLoss === 0) {
+      result.push(100);
+    } else {
+      const rs = avgGain / avgLoss;
+      result.push(100 - 100 / (1 + rs));
+    }
+  }
+
+  return result;
+};

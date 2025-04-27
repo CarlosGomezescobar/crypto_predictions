@@ -219,7 +219,7 @@ export const useBacktesting = () => {
       // Inicializar variables para el backtesting
       let balance = initialBalance;
       let position = 0; // Cantidad de criptomoneda en posesión
-      let trades: {
+      const trades: {
         date: Date;
         type: 'buy' | 'sell';
         price: number;
@@ -443,7 +443,6 @@ export const useRiskAnalysis = () => {
   const [riskAnalysis, setRiskAnalysis] = useState<RiskAnalysis | null>(null);
   const { isLoading, error, executeWithLoading } = useLoadingState();
 
-  // Calcular análisis de riesgo
   const calculateRisk = useCallback(async (
     entryPrice: number,
     stopLossPercent: number = 0.05,
@@ -453,22 +452,67 @@ export const useRiskAnalysis = () => {
     winRate: number = 0.5
   ) => {
     await executeWithLoading(async () => {
-      // Calcular stop loss
-      const stopLoss = entryPrice * (1 - stopLossPercent);
-      
-      // Calcular niveles de take profit
-      const risk = entryPrice - stopLoss;
-      const takeProfits = takeProfitLevels.map(level => entryPrice + (risk * level));
-      
-      // Calcular tamaño de posición
-      const riskAmount = portfolioValue * riskPerTrade;
-      const positionSize = riskAmount / (entryPrice - stopLoss);
-      
-      // Calcular drawdown máximo esperado
-      // Simplificación: asumimos que perdemos consecutivamente según (1 - winRate)
-      const consecutiveLosses = Math.ceil(Math.log(0.05) / Math.log(1 - winRate));
-      const maxDrawdown = 1 - Math.pow(1 - riskPerTrade, consecutiveLosses);
-      
-      // Calcular porcentaje de Kelly
-      const avgWin = takeProfitLevels.reduce((sum, level) => sum + level, 0) / takeProf
-(Content truncated due to size limit. Use line ranges to read in chunks)
+      try {
+        // 1. Calcular niveles básicos
+        const stopLoss = entryPrice * (1 - stopLossPercent);
+        const riskPerShare = entryPrice - stopLoss;
+        const takeProfits = takeProfitLevels.map(level => 
+          entryPrice + (riskPerShare * level)
+        );
+
+        // 2. Cálculo de tamaño de posición
+        const riskAmount = portfolioValue * riskPerTrade;
+        const positionSize = riskAmount / riskPerShare;
+
+        // 3. Análisis de drawdown máximo
+        const consecutiveLosses = Math.ceil(
+          Math.log(0.05) / Math.log(1 - winRate)
+        );
+        const maxDrawdown = 1 - Math.pow(1 - riskPerTrade, consecutiveLosses);
+
+        // 4. Cálculo de Kelly Criterion
+        const avgWin = takeProfitLevels.reduce((sum, level) => sum + level, 0) 
+                     / takeProfitLevels.length;
+                     
+        const kellyNumerator = winRate * avgWin - (1 - winRate);
+        const kellyPercentage = kellyNumerator / avgWin;
+
+        // 5. Ratios riesgo/recompensa
+        const riskRewardRatios = takeProfitLevels.map(level => 
+          (entryPrice + (riskPerShare * level) - entryPrice) / riskPerShare
+        );
+
+        // 6. Probabilidad de alcanzar take profits
+        const tpProbabilities = takeProfitLevels.map(level => 
+          1 - Math.pow(1 - winRate, level)
+        );
+
+        // Actualizar estado con resultados
+        setRiskAnalysis({
+          entryPrice,
+          stopLoss,
+          takeProfits,
+          positionSize,
+          maxDrawdown,
+          kellyPercentage: Math.max(0, kellyPercentage),
+          riskRewardRatios,
+          tpProbabilities,
+          consecutiveLosses,
+          riskPerShare
+        });
+
+      } catch (err) {
+        console.error('Error en cálculo de riesgo:', err);
+        setRiskAnalysis(null);
+        throw err;
+      }
+    });
+  }, [executeWithLoading]);
+
+  return {
+    riskAnalysis,
+    calculateRisk,
+    isLoading,
+    error
+  };
+};

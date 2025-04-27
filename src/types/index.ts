@@ -310,6 +310,18 @@ export interface ApiError {
   code?: string;
   details?: any;
 }
+export interface RiskAnalysis {
+  entryPrice: number;
+  stopLoss: number;
+  takeProfits: number[];
+  positionSize: number;
+  maxDrawdown: number;
+  kellyPercentage: number;
+  riskRewardRatios: number[];
+  tpProbabilities: number[];
+  consecutiveLosses: number;
+  riskPerShare: number;
+}
 
 // Exportar todos los tipos
 export type {
@@ -341,5 +353,6 @@ export type {
   ChartOptions,
   TableColumn,
   ApiResponse,
-  ApiError
+  ApiError,
+  RiskAnalysis
 };
