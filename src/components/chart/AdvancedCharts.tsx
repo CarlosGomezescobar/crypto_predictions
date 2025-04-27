@@ -1,25 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { Line, Bar, Radar, Scatter, Doughnut } from 'react-chartjs-2';
-import Card from '../ui/Card';
+import { Line, Bar, Doughnut } from 'react-chart-2';
+import { ChartData, ChartOptions, ChartDataset  } from 'chart.js';
+import { TooltipItem } from 'chart.js';
 import LoadingSpinner from '../ui/LoadingSpinner';
+// import { ChartDataset } from 'chart.js';
 import { 
   prepareLineChartData, 
-  prepareBarChartData, 
+ // prepareBarChartData, 
   preparePredictionChartData,
   prepareTechnicalIndicatorChart,
   prepareCorrelationHeatmap,
   prepareBacktestChart,
   preparePortfolioChart
-} from '../utils/chartUtils';
+} from '../utils/chartUtils.ts';
 import { useTheme } from '../hooks/useAppState';
 import { 
   calculateSMA, 
   calculateEMA, 
-  calculateRSI, 
-  calculateMACD,
+ // calculateRSI, 
+ // calculateMACD,
   calculateBollingerBands,
-  calculateVolatility,
-  calculateCorrelation
+ // calculateVolatility,
+ // calculateCorrelation
 } from '../utils/calculationUtils';
 
 interface AdvancedPriceChartProps {
@@ -42,9 +44,6 @@ interface AdvancedPriceChartProps {
   className?: string;
 }
 
-/**
- * Gráfico avanzado de precios con indicadores técnicos
- */
 export const AdvancedPriceChart: React.FC<AdvancedPriceChartProps> = ({
   data,
   symbol,
@@ -55,90 +54,90 @@ export const AdvancedPriceChart: React.FC<AdvancedPriceChartProps> = ({
   showBollingerBands = false,
   height = 400,
   width = 800,
-  className = ''
+  className = '',
 }) => {
   const { isDarkMode } = useTheme();
-  const [chartData, setChartData] = useState<any>(null);
-  const [chartOptions, setChartOptions] = useState<any>(null);
+  const [chartData, setChartData] = useState<ChartData | null>(null); // Usar el tipo ChartData
+  const [chartOptions, setChartOptions] = useState<ChartOptions | null>(null); // Usar el tipo ChartOptions
 
   useEffect(() => {
     if (!data || !data.dates || data.dates.length === 0) return;
 
     // Preparar indicadores técnicos
     const indicators = [];
-    
+
     if (showSMA) {
       const sma20 = calculateSMA(data.close, 20);
       const sma50 = calculateSMA(data.close, 50);
-      
+
       indicators.push({
         name: 'SMA 20',
         values: sma20,
         color: '#10B981', // verde
         type: 'line',
-        yAxisID: 'y'
+        yAxisID: 'y',
       });
-      
+
       indicators.push({
         name: 'SMA 50',
         values: sma50,
         color: '#6366F1', // indigo
         type: 'line',
-        yAxisID: 'y'
+        yAxisID: 'y',
       });
     }
-    
+
     if (showEMA) {
       const ema12 = calculateEMA(data.close, 12);
       const ema26 = calculateEMA(data.close, 26);
-      
+
       indicators.push({
         name: 'EMA 12',
         values: ema12,
         color: '#F59E0B', // ámbar
         type: 'line',
-        yAxisID: 'y'
+        yAxisID: 'y',
       });
-      
+
       indicators.push({
         name: 'EMA 26',
         values: ema26,
         color: '#EC4899', // rosa
         type: 'line',
-        yAxisID: 'y'
+        yAxisID: 'y',
       });
     }
-    
+
     if (showBollingerBands) {
       const { upper, middle, lower } = calculateBollingerBands(data.close, 20, 2);
-      
+
       indicators.push({
         name: 'BB Superior',
         values: upper,
         color: '#EF4444', // rojo
         type: 'line',
-        yAxisID: 'y'
+        yAxisID: 'y',
       });
-      
+
       indicators.push({
         name: 'BB Media',
         values: middle,
         color: '#8B5CF6', // púrpura
         type: 'line',
-        yAxisID: 'y'
+        yAxisID: 'y',
       });
-      
+
       indicators.push({
         name: 'BB Inferior',
         values: lower,
         color: '#3B82F6', // azul
         type: 'line',
-        yAxisID: 'y'
+        yAxisID: 'y',
       });
     }
 
     // Preparar datos para el gráfico
-    const { data: chartData, options: chartOptions } = prepareTechnicalIndicatorChart(
+    const { data: preparedChartData, options: preparedChartOptions } = prepareTechnicalIndicatorChart(
       data.dates,
       data.close,
       indicators,
@@ -150,12 +149,12 @@ export const AdvancedPriceChart: React.FC<AdvancedPriceChartProps> = ({
         showVolume,
         volume: data.volume,
         volumeColor: '#6B7280', // gris
-        isDarkMode
+        isDarkMode,
       }
     );
 
-    setChartData(chartData);
-    setChartOptions(chartOptions);
+    setChartData(preparedChartData);
+    setChartOptions(preparedChartOptions);
   }, [data, symbol, timeframe, showVolume, showSMA, showEMA, showBollingerBands, isDarkMode]);
 
   if (!chartData || !chartOptions) {
@@ -205,43 +204,51 @@ export const TechnicalIndicatorChart: React.FC<TechnicalIndicatorChartProps> = (
   className = ''
 }) => {
   const { isDarkMode } = useTheme();
-  const [chartData, setChartData] = useState<any>(null);
-  const [chartOptions, setChartOptions] = useState<any>(null);
+  const [chartData, setChartData] = useState<ChartData | null>(null); // Usar el tipo ChartData
+  const [chartOptions, setChartOptions] = useState<ChartOptions | null>(null);
 
   useEffect(() => {
     if (!data || !data.dates || data.dates.length === 0) return;
-
+  
     // Preparar datos para el gráfico
-    const datasets = [
+    const datasets: ChartDataset<'line'>[] = [
       {
         label: indicatorName,
         data: data.indicator,
-        color: indicatorColor,
-        fill: false
-      }
+        borderColor: indicatorColor,
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        fill: false,
+      },
     ];
-
+  
     // Añadir líneas de umbral si se especifican
     if (thresholds) {
       if (thresholds.upper !== undefined) {
         datasets.push({
           label: `Umbral Superior (${thresholds.upper})`,
           data: Array(data.dates.length).fill(thresholds.upper),
-          color: thresholds.upperColor || '#EF4444', // rojo
-          dashed: true
+          borderColor: thresholds.upperColor || '#EF4444', // rojo
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          borderDash: [5, 5], // Línea discontinua
+          fill: false,
         });
       }
-      
+  
       if (thresholds.lower !== undefined) {
         datasets.push({
           label: `Umbral Inferior (${thresholds.lower})`,
           data: Array(data.dates.length).fill(thresholds.lower),
-          color: thresholds.lowerColor || '#10B981', // verde
-          dashed: true
+          borderColor: thresholds.lowerColor || '#10B981', // verde
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          borderDash: [5, 5], // Línea discontinua
+          fill: false,
         });
       }
     }
-
+  
     const { data: chartData, options: chartOptions } = prepareLineChartData(
       data.dates,
       datasets,
@@ -249,10 +256,10 @@ export const TechnicalIndicatorChart: React.FC<TechnicalIndicatorChartProps> = (
         title: indicatorName,
         yAxisLabel: indicatorName,
         xAxisLabel: 'Fecha',
-        isDarkMode
+        isDarkMode,
       }
     );
-
+  
     setChartData(chartData);
     setChartOptions(chartOptions);
   }, [data, indicatorName, indicatorColor, thresholds, isDarkMode]);
@@ -303,8 +310,8 @@ export const PredictionComparisonChart: React.FC<PredictionComparisonChartProps>
   className = ''
 }) => {
   const { isDarkMode } = useTheme();
-  const [chartData, setChartData] = useState<any>(null);
-  const [chartOptions, setChartOptions] = useState<any>(null);
+  const [chartData, setChartData] = useState<ChartData | null>(null); 
+  const [chartOptions, setChartOptions] = useState<ChartOptions | null>(null);
 
   useEffect(() => {
     if (!historicalData || !predictionData) return;
@@ -374,8 +381,8 @@ export const BacktestResultChart: React.FC<BacktestResultChartProps> = ({
   className = ''
 }) => {
   const { isDarkMode } = useTheme();
-  const [chartData, setChartData] = useState<any>(null);
-  const [chartOptions, setChartOptions] = useState<any>(null);
+  const [chartData, setChartData] = useState<ChartData | null>(null); 
+  const [chartOptions, setChartOptions] = useState<ChartOptions | null>(null);
 
   useEffect(() => {
     if (!backtestData) return;
@@ -434,8 +441,8 @@ export const PortfolioAllocationChart: React.FC<PortfolioAllocationChartProps> =
   className = ''
 }) => {
   const { isDarkMode } = useTheme();
-  const [chartData, setChartData] = useState<any>(null);
-  const [chartOptions, setChartOptions] = useState<any>(null);
+  const [chartData, setChartData] = useState<ChartData | null>(null);
+  const [chartOptions, setChartOptions] = useState<ChartOptions | null>(null);
 
   useEffect(() => {
     if (!portfolioData) return;
@@ -489,8 +496,8 @@ export const CorrelationMatrixChart: React.FC<CorrelationMatrixChartProps> = ({
   className = ''
 }) => {
   const { isDarkMode } = useTheme();
-  const [chartData, setChartData] = useState<any>(null);
-  const [chartOptions, setChartOptions] = useState<any>(null);
+  const [chartData, setChartData] = useState<ChartData | null>(null); // Usar el tipo ChartData
+  const [chartOptions, setChartOptions] = useState<ChartOptions | null>(null);
 
   useEffect(() => {
     if (!correlationData) return;
@@ -556,8 +563,8 @@ export const MultiAssetComparisonChart: React.FC<MultiAssetComparisonChartProps>
   className = ''
 }) => {
   const { isDarkMode } = useTheme();
-  const [chartData, setChartData] = useState<any>(null);
-  const [chartOptions, setChartOptions] = useState<any>(null);
+  const [chartData, setChartData] = useState<ChartData | null>(null); // Usar el tipo ChartData
+  const [chartOptions, setChartOptions] = useState<ChartOptions | null>(null);
 
   useEffect(() => {
     if (!data || !data.dates || data.dates.length === 0 || !data.assets || data.assets.length === 0) return;
@@ -629,11 +636,11 @@ export const VolumeProfileChart: React.FC<VolumeProfileChartProps> = ({
   bins = 20,
   height = 400,
   width = 200,
-  className = ''
+  className = '',
 }) => {
   const { isDarkMode } = useTheme();
-  const [chartData, setChartData] = useState<any>(null);
-  const [chartOptions, setChartOptions] = useState<any>(null);
+  const [chartData, setChartData] = useState<ChartData | null>(null);
+  const [chartOptions, setChartOptions] = useState<ChartOptions | null>(null);
 
   useEffect(() => {
     if (!data || !data.prices || data.prices.length === 0) return;
@@ -684,9 +691,9 @@ export const VolumeProfileChart: React.FC<VolumeProfileChartProps> = ({
         tooltip: {
           enabled: true,
           callbacks: {
-            label: (context: any) => {
+            label: (context: TooltipItem<'bar'>) => {
               const label = context.label || '';
-              const value = context.raw || 0;
+              const value = Number(context.raw); 
               return `${label}: ${value.toFixed(2)}`;
             },
           },
