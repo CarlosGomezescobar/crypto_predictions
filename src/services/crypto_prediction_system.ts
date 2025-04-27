@@ -13,6 +13,7 @@ import axios from 'axios';
 import * as tf from '@tensorflow/tfjs-node';
 import * as moment from 'moment';
 
+
 // Definición de interfaces
 interface DataFrame {
   index: any[];
