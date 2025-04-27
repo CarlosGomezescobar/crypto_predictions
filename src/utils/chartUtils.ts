@@ -3,8 +3,77 @@
  */
 
 import { ChartOptions } from '../types';
-import { hexToRgba, generateColorPalette } from './calculationUtils';
+import { hexToRgba } from './calculationUtils';
 
+export const generateChartOptions = (
+  title: string,
+  xAxisLabel: string,
+  yAxisLabel: string,
+  isDarkMode: boolean = false
+): ChartOptions => {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      title: {
+        display: true,
+        text: title,
+        font: {
+          size: 16,
+          weight: 'bold',
+        },
+        color: isDarkMode ? '#ffffff' : '#333333',
+      },
+      legend: {
+        display: true,
+        labels: {
+          color: isDarkMode ? '#ffffff' : '#333333',
+        },
+      },
+      tooltip: {
+        enabled: true,
+        callbacks: {
+          label: (context) => {
+            let label = context.dataset.label || '';
+            if (label) {
+              label += ': ';
+            }
+            label += context.parsed.y.toFixed(2);
+            return label;
+          },
+        },
+      },
+    },
+    scales: {
+      x: {
+        title: {
+          display: true,
+          text: xAxisLabel,
+          color: isDarkMode ? '#ffffff' : '#333333',
+        },
+        ticks: {
+          color: isDarkMode ? '#ffffff' : '#333333',
+        },
+        grid: {
+          color: isDarkMode ? '#444444' : '#cccccc',
+        },
+      },
+      y: {
+        title: {
+          display: true,
+          text: yAxisLabel,
+          color: isDarkMode ? '#ffffff' : '#333333',
+        },
+        ticks: {
+          color: isDarkMode ? '#ffffff' : '#333333',
+        },
+        grid: {
+          color: isDarkMode ? '#444444' : '#cccccc',
+        },
+      },
+    },
+  };
+};
 /**
  * Prepara datos para gráficos de línea
  * @param labels Etiquetas para el eje X

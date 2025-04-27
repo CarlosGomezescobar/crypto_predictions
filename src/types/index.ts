@@ -7,6 +7,7 @@ export interface CryptoAsset {
   name: string;
   logo?: string;
   description?: string;
+  category: string;
 }
 
 export interface TimeFrame {
@@ -26,7 +27,41 @@ export interface OHLCVData {
   volume: number[];
   timestamp?: number[];
 }
+export type PriceData = {
+  date: Date;
+  price: number;
+  volume?: number; // Volumen es opcional
+};
+export const createPriceData = (
+  date: Date,
+  price: number,
+  volume?: number
+): PriceData | null => {
+  // Validar que el precio sea un número positivo
+  if (typeof price !== 'number' || price <= 0) {
+    console.error('El precio debe ser un número positivo.');
+    return null;
+  }
 
+  // Validar que la fecha sea válida
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    console.error('La fecha proporcionada no es válida.');
+    return null;
+  }
+
+  // Validar que el volumen, si está presente, sea un número positivo
+  if (volume !== undefined && (typeof volume !== 'number' || volume < 0)) {
+    console.error('El volumen debe ser un número positivo o cero.');
+    return null;
+  }
+
+  // Retornar el objeto PriceData validado
+  return {
+    date,
+    price,
+    volume,
+  };
+};
 // Interfaces para análisis técnico
 export interface TechnicalIndicator {
   name: string;
@@ -146,7 +181,52 @@ export interface TrainingOptions {
   features: string[];
   modelType: 'lstm' | 'gru' | 'cnn' | 'transformer';
 }
+export const ModelTrainingOptions = (options: Partial<TrainingOptions>): TrainingOptions => {
+  // Valores predeterminados
+  const defaultOptions: TrainingOptions = {
+    epochs: 100,
+    learningRate: 0.001,
+    batchSize: 32,
+    splitRatio: 0.8,
+    windowSize: 14,
+    features: ['close', 'volume', 'rsi', 'macd'],
+    modelType: 'lstm',
+  };
 
+  // Validar y combinar las opciones proporcionadas con los valores predeterminados
+  const validatedOptions: TrainingOptions = {
+    ...defaultOptions,
+    ...options,
+  };
+
+  // Validaciones adicionales
+  if (validatedOptions.epochs <= 0) {
+    console.warn('El número de épocas debe ser mayor que cero. Usando valor predeterminado.');
+    validatedOptions.epochs = defaultOptions.epochs;
+  }
+
+  if (validatedOptions.batchSize <= 0) {
+    console.warn('El tamaño del lote debe ser mayor que cero. Usando valor predeterminado.');
+    validatedOptions.batchSize = defaultOptions.batchSize;
+  }
+
+  if (validatedOptions.splitRatio < 0 || validatedOptions.splitRatio > 1) {
+    console.warn('La proporción de división debe estar entre 0 y 1. Usando valor predeterminado.');
+    validatedOptions.splitRatio = defaultOptions.splitRatio;
+  }
+
+  if (validatedOptions.windowSize <= 0) {
+    console.warn('El tamaño de la ventana debe ser mayor que cero. Usando valor predeterminado.');
+    validatedOptions.windowSize = defaultOptions.windowSize;
+  }
+
+  if (!['lstm', 'gru', 'cnn', 'transformer'].includes(validatedOptions.modelType)) {
+    console.warn('Tipo de modelo no válido. Usando valor predeterminado.');
+    validatedOptions.modelType = defaultOptions.modelType;
+  }
+
+  return validatedOptions;
+};
 export interface TradingSignal {
   date: string;
   type: 'buy' | 'sell' | 'hold';
@@ -323,11 +403,104 @@ export interface RiskAnalysis {
   riskPerShare: number;
 }
 
+export interface UserSettings {
+  defaultSymbol: string;
+  defaultTimeframe: string;
+  predictionDays: number;
+  theme: 'light' | 'dark';
+  showAdvancedOptions: boolean;
+  autoRefreshInterval: number | null; // Intervalo en minutos
+  favoriteAssets: string[]; // Lista de activos favoritos
+}
+
+
+export const createUserSettings = (settings: Partial<UserSettings>): UserSettings => {
+  // Valores predeterminados
+  const defaultSettings: UserSettings = {
+    defaultSymbol: 'BTC/USDT',
+    defaultTimeframe: '1d',
+    predictionDays: 30,
+    theme: 'light',
+    showAdvancedOptions: false,
+    autoRefreshInterval: null,
+    favoriteAssets: ['BTC/USDT', 'ETH/USDT'],
+  };
+
+  // Validar y combinar las opciones proporcionadas con los valores predeterminados
+  const validatedSettings: UserSettings = {
+    ...defaultSettings,
+    ...settings,
+  };
+
+  // Validaciones adicionales
+  if (!['light', 'dark'].includes(validatedSettings.theme)) {
+    console.warn('Tema no válido. Usando valor predeterminado.');
+    validatedSettings.theme = defaultSettings.theme;
+  }
+
+  if (validatedSettings.predictionDays <= 0) {
+    console.warn('El número de días de predicción debe ser mayor que cero. Usando valor predeterminado.');
+    validatedSettings.predictionDays = defaultSettings.predictionDays;
+  }
+
+  if (validatedSettings.autoRefreshInterval !== null && validatedSettings.autoRefreshInterval < 1) {
+    console.warn('El intervalo de actualización automática debe ser al menos 1 minuto. Usando valor predeterminado.');
+    validatedSettings.autoRefreshInterval = defaultSettings.autoRefreshInterval;
+  }
+
+  return validatedSettings;
+};
+// Definición de tipos para NotificationSettings
+export interface NotificationSettings {
+  enablePriceAlerts: boolean;
+  enableSignalAlerts: boolean;
+  enablePredictionAlerts: boolean;
+  priceChangeThreshold: number; // Umbral de cambio de precio en porcentaje
+  notificationMethods: ('app' | 'email' | 'push')[]; // Métodos de notificación
+}
+
+
+export const createNotificationSettings = (
+  settings: Partial<NotificationSettings>
+): NotificationSettings => {
+  // Valores predeterminados
+  const defaultSettings: NotificationSettings = {
+    enablePriceAlerts: false,
+    enableSignalAlerts: false,
+    enablePredictionAlerts: false,
+    priceChangeThreshold: 5, // Umbral predeterminado del 5%
+    notificationMethods: ['app'], // Método predeterminado: notificaciones en la app
+  };
+
+  // Validar y combinar las opciones proporcionadas con los valores predeterminados
+  const validatedSettings: NotificationSettings = {
+    ...defaultSettings,
+    ...settings,
+  };
+
+  // Validaciones adicionales
+  if (validatedSettings.priceChangeThreshold < 0) {
+    console.warn(
+      'El umbral de cambio de precio debe ser mayor o igual a cero. Usando valor predeterminado.'
+    );
+    validatedSettings.priceChangeThreshold = defaultSettings.priceChangeThreshold;
+  }
+
+  if (validatedSettings.notificationMethods.length === 0) {
+    console.warn('Debe haber al menos un método de notificación activo. Usando valor predeterminado.');
+    validatedSettings.notificationMethods = defaultSettings.notificationMethods;
+  }
+
+  return validatedSettings;
+};
+
 // Exportar todos los tipos
 export type {
   CryptoAsset,
   TimeFrame,
   OHLCVData,
+  PriceData,
+  createPriceData,
   TechnicalIndicator,
   TechnicalAnalysisResult,
   ChartPattern,
@@ -341,6 +514,7 @@ export type {
   PredictionResult,
   ModelMetrics,
   TrainingOptions,
+  ModelTrainingOptions,
   TradingSignal,
   BacktestResult,
   Trade,
@@ -354,5 +528,9 @@ export type {
   TableColumn,
   ApiResponse,
   ApiError,
-  RiskAnalysis
+  RiskAnalysis,
+  UserSettings,
+  NotificationSettings
+ 
+
 };

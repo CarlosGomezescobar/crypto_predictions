@@ -3,6 +3,7 @@
  */
 
 /**
+ * hexToRgba
  * Formatea un número como moneda
  * @param value Valor a formatear
  * @param currency Código de moneda (por defecto USD)
@@ -310,12 +311,7 @@ export const formatCurrency = (
     };
   };
   
-  /**
-   * Calcula niveles de soporte y resistencia
-   * @param data Array de precios
-   * @param periods Número de períodos para buscar
-   * @returns Objeto con niveles de soporte y resistencia
-   */
+ 
   export const calculateSupportResistance = (
     data: number[],
     periods: number = 5
@@ -377,7 +373,7 @@ export const formatCurrency = (
    * @param data Array de datos
    * @returns Array normalizado
    */
-  export const normalizeData = (data: number[]): number[] => {
+  export const normalizeData = (data: number[]): number[] => {{
     const min = Math.min(...data);
     const max = Math.max(...data);
     
@@ -471,7 +467,18 @@ export const formatCurrency = (
     // Calcular ratio de Sharpe
     return (meanReturn - riskFreeRate) / stdDev;
   };
+  export const hexToRgba = (hex: string, alpha: number = 1): string => {
+    // Eliminar el caracter '#' si existe
+    const cleanHex = hex.replace('#', '');
   
+    // Extraer los valores RGB del color hexadecimal
+    const r = parseInt(cleanHex.slice(0, 2), 16);
+    const g = parseInt(cleanHex.slice(2, 4), 16);
+    const b = parseInt(cleanHex.slice(4, 6), 16);
+  
+    // Devolver el color en formato RGBA
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
   /**
    * Calcula el drawdown máximo
    * @param data Array de precios o valores
@@ -539,13 +546,7 @@ export const formatCurrency = (
    * @param alpha Valor de transparencia (0-1)
    * @returns Color en formato RGBA
    */
-  export const hexToRgba = (hex: string, alpha: number = 1): string => {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  };
+
   
   /**
    * Genera una paleta de colores para gráficos
@@ -742,24 +743,20 @@ export const calculateHistoricalVolatility = (
   return Math.sqrt(variance) * Math.sqrt(365); // Anualizada
 };
 /**
- * Normaliza un array de datos
+ * Normaliza un array de datos al rango [0, 1]
  * @param data Array de datos
  * @returns Array normalizado
  */
-export const normalizeData = (data: number[]): number[] => {
-  if (data.length === 0) {
-    return [];
-  }
-
+export const normalizeData = (data: number[]): number[] => {{
   const min = Math.min(...data);
   const max = Math.max(...data);
 
-  if (max === min) {
-    return data.map(() => 1); // Evitar división por cero
-  }
+  // Evitar división por cero si todos los valores son iguales
+  if (max === min) return data.map(() => 0.5);
 
-  return data.map((value) => (value - min) / (max - min));
+  return data.map(value => (value - min) / (max - min));
 };
+
 /**
  * Calcula el RSI (Relative Strength Index) optimizado
  * @param data Array de datos
@@ -801,3 +798,5 @@ export const calculateOptimizedRSI = (
 
   return result;
 };
+}
+}

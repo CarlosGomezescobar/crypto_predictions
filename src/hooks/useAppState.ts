@@ -386,10 +386,16 @@ export const useLoadingState = () => {
     setIsLoading(true);
     setError(null);
     setSuccess(false);
-    
+  
     try {
       const result = await operation();
       setSuccess(true);
+  
+      // Mostrar el mensaje de éxito si está definido
+      if (successMessage) {
+        console.log(successMessage); // O usa una función para mostrar notificaciones
+      }
+  
       return result;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);

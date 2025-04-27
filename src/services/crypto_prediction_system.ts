@@ -5,12 +5,12 @@
  */
 
 // Importación de librerías necesarias
-import * as danfojs from 'danfojs-node';
+import * as danfojs from 'danfojs';
 import * as numjs from 'numjs';
 import * as Chart from 'chart.js';
 import * as ccxt from 'ccxt';
 import axios from 'axios';
-import * as tf from '@tensorflow/tfjs-node';
+import * as tf from '@tensorflow/tfjs';
 import * as moment from 'moment';
 
 

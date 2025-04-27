@@ -4,7 +4,7 @@ import App from './App.tsx';
 import './index.css';
 
 // Importar Tailwind CSS
-import './tailwind.css';
+import '../tailwind.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

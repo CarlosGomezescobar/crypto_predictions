@@ -96,7 +96,7 @@ crypto-prediction-frontend/
 # Clonar el repositorio
 git clone <url-del-repositorio>
 
-# Instalar dependencias
+# Instalar dependencias node 20.19.0
 cd crypto-prediction-frontend
 npm install
 

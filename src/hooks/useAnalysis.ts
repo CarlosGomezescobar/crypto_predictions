@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { PriceData, TechnicalIndicator, BacktestResult, RiskAnalysis, ModelTrainingOptions } from '../types';
+import { PriceData, TechnicalIndicator, BacktestResult, RiskAnalysis  } from '../types'; // ModelTrainingOptions
 import PredictionService from '../services/PredictionService';
 import { useLoadingState } from './useAppState';
 
