@@ -10,18 +10,18 @@
  * @param decimals Número de decimales
  * @returns Cadena formateada como moneda
  */
-export const formatCurrency = (
-    value: number,
-    currency: string = 'USD',
-    decimals: number = 2
-  ): string => {
-    return new Intl.NumberFormat('es-ES', {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals
-    }).format(value);
-  };
+  export const formatCurrency = (
+      value: number,
+      currency: string = 'USD',
+      decimals: number = 2
+    ): string => {
+      return new Intl.NumberFormat('es-ES', {
+        style: 'currency',
+        currency,
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
+      }).format(value);
+   };
   
   /**
    * Formatea un número como porcentaje
@@ -382,21 +382,13 @@ export const formatCurrency = (
     return data.map(value => (value - min) / (max - min));
   };
   
-  /**
-   * Desnormaliza un array de datos desde [0, 1] al rango original
-   * @param normalizedData Array normalizado
-   * @param min Valor mínimo original
-   * @param max Valor máximo original
-   * @returns Array desnormalizado
-   */
-  export const denormalizeData = (
-    normalizedData: number[],
-    min: number,
-    max: number
-  ): number[] => {
-    return normalizedData.map(value => (value * (max - min)) + min);
+  export const hexToRgba = (hex: string, alpha: number = 1): string => {
+    const cleanedHex = hex.replace('#', '');
+    const r = parseInt(cleanedHex.slice(0, 2), 16);
+    const g = parseInt(cleanedHex.slice(2, 4), 16);
+    const b = parseInt(cleanedHex.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   };
-  
   /**
    * Calcula la correlación entre dos arrays de datos
    * @param data1 Primer array de datos
@@ -467,18 +459,6 @@ export const formatCurrency = (
     // Calcular ratio de Sharpe
     return (meanReturn - riskFreeRate) / stdDev;
   };
-  export const hexToRgba = (hex: string, alpha: number = 1): string => {
-    // Eliminar el caracter '#' si existe
-    const cleanHex = hex.replace('#', '');
-  
-    // Extraer los valores RGB del color hexadecimal
-    const r = parseInt(cleanHex.slice(0, 2), 16);
-    const g = parseInt(cleanHex.slice(2, 4), 16);
-    const b = parseInt(cleanHex.slice(4, 6), 16);
-  
-    // Devolver el color en formato RGBA
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  };
   /**
    * Calcula el drawdown máximo
    * @param data Array de precios o valores
@@ -540,14 +520,7 @@ export const formatCurrency = (
     return dates;
   };
   
-  /**
-   * Convierte un color hexadecimal a RGBA
-   * @param hex Color hexadecimal
-   * @param alpha Valor de transparencia (0-1)
-   * @returns Color en formato RGBA
-   */
-
-  
+ 
   /**
    * Genera una paleta de colores para gráficos
    * @param baseColor Color base en formato hexadecimal
@@ -742,20 +715,7 @@ export const calculateHistoricalVolatility = (
 
   return Math.sqrt(variance) * Math.sqrt(365); // Anualizada
 };
-/**
- * Normaliza un array de datos al rango [0, 1]
- * @param data Array de datos
- * @returns Array normalizado
- */
-export const normalizeData = (data: number[]): number[] => {{
-  const min = Math.min(...data);
-  const max = Math.max(...data);
 
-  // Evitar división por cero si todos los valores son iguales
-  if (max === min) return data.map(() => 0.5);
-
-  return data.map(value => (value - min) / (max - min));
-};
 
 /**
  * Calcula el RSI (Relative Strength Index) optimizado
@@ -763,40 +723,38 @@ export const normalizeData = (data: number[]): number[] => {{
  * @param period Período para el RSI
  * @returns Array con el RSI
  */
-export const calculateOptimizedRSI = (
-  data: number[],
-  period: number = 14
-): number[] => {
-  const result: number[] = [];
-  const changes: number[] = [];
+  export const calculateOptimizedRSI = (
+    data: number[],
+    period: number = 14
+  ): number[] => {
+    const result: number[] = [];
+    const changes: number[] = [];
 
-  for (let i = 1; i < data.length; i++) {
-    changes.push(data[i] - data[i - 1]);
-  }
-
-  const gains = changes.map((change) => (change > 0 ? change : 0));
-  const losses = changes.map((change) => (change < 0 ? Math.abs(change) : 0));
-
-  for (let i = 0; i < data.length; i++) {
-    if (i < period) {
-      result.push(NaN);
-      continue;
+    for (let i = 1; i < data.length; i++) {
+      changes.push(data[i] - data[i - 1]);
     }
 
-    const avgGain =
-      gains.slice(i - period, i).reduce((sum, gain) => sum + gain, 0) / period;
-    const avgLoss =
-      losses.slice(i - period, i).reduce((sum, loss) => sum + loss, 0) / period;
+    const gains = changes.map((change) => (change > 0 ? change : 0));
+    const losses = changes.map((change) => (change < 0 ? Math.abs(change) : 0));
 
-    if (avgLoss === 0) {
-      result.push(100);
-    } else {
-      const rs = avgGain / avgLoss;
-      result.push(100 - 100 / (1 + rs));
+    for (let i = 0; i < data.length; i++) {
+      if (i < period) {
+        result.push(NaN);
+        continue;
+      }
+
+      const avgGain =
+        gains.slice(i - period, i).reduce((sum, gain) => sum + gain, 0) / period;
+      const avgLoss =
+        losses.slice(i - period, i).reduce((sum, loss) => sum + loss, 0) / period;
+
+      if (avgLoss === 0) {
+        result.push(100);
+      } else {
+        const rs = avgGain / avgLoss;
+        result.push(100 - 100 / (1 + rs));
+      }
     }
-  }
 
-  return result;
-};
-}
-}
+    return result;
+  };

@@ -32,36 +32,36 @@ export type PriceData = {
   price: number;
   volume?: number; // Volumen es opcional
 };
-export const createPriceData = (
-  date: Date,
-  price: number,
-  volume?: number
-): PriceData | null => {
-  // Validar que el precio sea un número positivo
-  if (typeof price !== 'number' || price <= 0) {
-    console.error('El precio debe ser un número positivo.');
-    return null;
-  }
+// export const createPriceData = (
+//   date: Date,
+//   price: number,
+//   volume?: number
+// ): PriceData | null => {
+//   // Validar que el precio sea un número positivo
+//   if (typeof price !== 'number' || price <= 0) {
+//     console.error('El precio debe ser un número positivo.');
+//     return null;
+//   }
 
-  // Validar que la fecha sea válida
-  if (!(date instanceof Date) || isNaN(date.getTime())) {
-    console.error('La fecha proporcionada no es válida.');
-    return null;
-  }
+//   // Validar que la fecha sea válida
+//   if (!(date instanceof Date) || isNaN(date.getTime())) {
+//     console.error('La fecha proporcionada no es válida.');
+//     return null;
+//   }
 
-  // Validar que el volumen, si está presente, sea un número positivo
-  if (volume !== undefined && (typeof volume !== 'number' || volume < 0)) {
-    console.error('El volumen debe ser un número positivo o cero.');
-    return null;
-  }
+//   // Validar que el volumen, si está presente, sea un número positivo
+//   if (volume !== undefined && (typeof volume !== 'number' || volume < 0)) {
+//     console.error('El volumen debe ser un número positivo o cero.');
+//     return null;
+//   }
 
-  // Retornar el objeto PriceData validado
-  return {
-    date,
-    price,
-    volume,
-  };
-};
+//   // Retornar el objeto PriceData validado
+//   return {
+//     date,
+//     price,
+//     volume,
+//   };
+// };
 // Interfaces para análisis técnico
 export interface TechnicalIndicator {
   name: string;
@@ -370,7 +370,7 @@ export interface ChartOptions {
 export interface TableColumn<T> {
   key: keyof T | string;
   header: string;
-  render?: (value: any, row: T) => React.ReactNode;
+  render?: <K extends keyof T>(value: T[K], row: T) => React.ReactNode;
   sortable?: boolean;
   width?: string;
 }
@@ -388,7 +388,7 @@ export interface ApiError {
   status: number;
   message: string;
   code?: string;
-  details?: any;
+  details?: unknown;
 }
 export interface RiskAnalysis {
   entryPrice: number;
@@ -492,45 +492,4 @@ export const createNotificationSettings = (
   }
 
   return validatedSettings;
-};
-
-// Exportar todos los tipos
-export type {
-  CryptoAsset,
-  TimeFrame,
-  OHLCVData,
-  PriceData,
-  createPriceData,
-  TechnicalIndicator,
-  TechnicalAnalysisResult,
-  ChartPattern,
-  FibonacciLevels,
-  SupportResistanceLevel,
-  OnChainData,
-  DevelopmentMetrics,
-  AdoptionMetrics,
-  CryptoEvent,
-  FundamentalAnalysisResult,
-  PredictionResult,
-  ModelMetrics,
-  TrainingOptions,
-  ModelTrainingOptions,
-  TradingSignal,
-  BacktestResult,
-  Trade,
-  BacktestMetrics,
-  RiskMetrics,
-  MarketSentiment,
-  NewsItem,
-  AppState,
-  Notification,
-  ChartOptions,
-  TableColumn,
-  ApiResponse,
-  ApiError,
-  RiskAnalysis,
-  UserSettings,
-  NotificationSettings
- 
-
 };

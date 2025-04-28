@@ -3,7 +3,8 @@
  */
 
 import { ChartOptions } from '../types';
-import { hexToRgba } from './calculationUtils';
+import { hexToRgba} from './calculationUtils'; // hexToRgba
+import { TooltipItem } from 'chart.js'; // ChartOptions
 
 export const generateChartOptions = (
   title: string,
@@ -33,7 +34,7 @@ export const generateChartOptions = (
       tooltip: {
         enabled: true,
         callbacks: {
-          label: (context) => {
+          label: (context: TooltipItem<'line'>) => {
             let label = context.dataset.label || '';
             if (label) {
               label += ': ';
@@ -72,7 +73,7 @@ export const generateChartOptions = (
         },
       },
     },
-  };
+  } as ChartOptions;
 };
 /**
  * Prepara datos para gráficos de línea
@@ -162,7 +163,7 @@ export const prepareLineChartData = (
           boxPadding: 5,
           usePointStyle: true,
           callbacks: {
-            label: function(context) {
+            label: function(context: TooltipItem<'line'>) {
               let label = context.dataset.label || '';
               if (label) {
                 label += ': ';
@@ -645,7 +646,7 @@ export const prepareScatterChartData = (
           boxPadding: 5,
           usePointStyle: true,
           callbacks: {
-            label: function(context) {
+            label: function(context: TooltipItem<'line'>) {
               const point = context.raw as { x: number; y: number };
               return `(${point.x.toFixed(2)}, ${point.y.toFixed(2)})`;
             }
@@ -706,7 +707,7 @@ export const prepareScatterChartData = (
           padding: 10,
           boxPadding: 5,
           callbacks: {
-            label: (context) => {
+            label: (context: TooltipItem<'line'>) => {
               const label = context.dataset.label || '';
               const value = context.parsed.y || 0;
               return `${label}: ${value.toFixed(2)}`;
@@ -739,4 +740,426 @@ export const prepareScatterChartData = (
       }
     }
   }
-}  
+}
+
+
+export const preparePredictionChartData = (
+  historicalDates: string[],
+  historicalPrices: number[],
+  predictionDates: string[],
+  predictionPrices: number[],
+  options?: {
+    title?: string;
+    yAxisLabel?: string;
+    xAxisLabel?: string;
+    historicalLabel?: string;
+    predictionLabel?: string;
+    historicalColor?: string;
+    predictionColor?: string;
+    confidenceInterval?: { upper: number[]; lower: number[] };
+    isDarkMode?: boolean;
+  }
+) => {
+  const isDarkMode = options?.isDarkMode || false;
+
+  return {
+    data: {
+      labels: [...historicalDates, ...predictionDates],
+      datasets: [
+        {
+          label: options?.historicalLabel || 'Datos Históricos',
+          data: [...historicalPrices, ...Array(predictionDates.length).fill(null)],
+          borderColor: options?.historicalColor || '#3B82F6', // Azul
+          backgroundColor: hexToRgba(options?.historicalColor || '#3B82F6', 0.2),
+          borderWidth: 2,
+          pointRadius: 0,
+          fill: false,
+        },
+        {
+          label: options?.predictionLabel || 'Predicción',
+          data: Array(historicalDates.length).fill(null).concat(predictionPrices),
+          borderColor: options?.predictionColor || '#EF4444', // Rojo
+          backgroundColor: hexToRgba(options?.predictionColor || '#EF4444', 0.2),
+          borderWidth: 2,
+          pointRadius: 0,
+          fill: false,
+        },
+        ...(options?.confidenceInterval
+          ? [
+              {
+                label: 'Intervalo de Confianza (Superior)',
+                data: Array(historicalDates.length)
+                  .fill(null)
+                  .concat(options.confidenceInterval.upper),
+                borderColor: '#8B5CF6', // Púrpura
+                borderWidth: 1,
+                borderDash: [5, 5],
+                fill: false,
+              },
+              {
+                label: 'Intervalo de Confianza (Inferior)',
+                data: Array(historicalDates.length)
+                  .fill(null)
+                  .concat(options.confidenceInterval.lower),
+                borderColor: '#8B5CF6', // Púrpura
+                borderWidth: 1,
+                borderDash: [5, 5],
+                fill: false,
+              },
+            ]
+          : []),
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        title: {
+          display: !!options?.title,
+          text: options?.title || '',
+          color: isDarkMode ? '#E5E7EB' : '#1F2937',
+          font: { size: 16, weight: 'bold' },
+        },
+        legend: {
+          position: 'top',
+          labels: {
+            color: isDarkMode ? '#D1D5DB' : '#4B5563',
+          },
+        },
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+        },
+      },
+      scales: {
+        x: {
+          title: {
+            display: !!options?.xAxisLabel,
+            text: options?.xAxisLabel || '',
+            color: isDarkMode ? '#E5E7EB' : '#1F2937',
+          },
+          ticks: {
+            color: isDarkMode ? '#D1D5DB' : '#4B5563',
+          },
+          grid: {
+            color: isDarkMode ? '#4B5563' : '#E5E7EB',
+          },
+        },
+        y: {
+          title: {
+            display: !!options?.yAxisLabel,
+            text: options?.yAxisLabel || '',
+            color: isDarkMode ? '#E5E7EB' : '#1F2937',
+          },
+          ticks: {
+            color: isDarkMode ? '#D1D5DB' : '#4B5563',
+          },
+          grid: {
+            color: isDarkMode ? '#4B5563' : '#E5E7EB',
+          },
+        },
+      },
+    },
+  };
+};
+
+export const prepareTechnicalIndicatorChart = (
+  dates: string[],
+  values: number[],
+  thresholds?: { upper?: number; lower?: number; upperColor?: string; lowerColor?: string },
+  options?: {
+    title?: string;
+    yAxisLabel?: string;
+    xAxisLabel?: string;
+    indicatorColor?: string;
+    isDarkMode?: boolean;
+  }
+) => {
+  const isDarkMode = options?.isDarkMode || false;
+
+  return {
+    data: {
+      labels: dates,
+      datasets: [
+        {
+          label: options?.yAxisLabel || 'Indicador',
+          data: values,
+          borderColor: options?.indicatorColor || '#3B82F6', // Azul
+          backgroundColor: hexToRgba(options?.indicatorColor || '#3B82F6', 0.2),
+          borderWidth: 2,
+          pointRadius: 0,
+          fill: false,
+        },
+        ...(thresholds?.upper !== undefined
+          ? [
+              {
+                label: `Umbral Superior (${thresholds.upper})`,
+                data: Array(dates.length).fill(thresholds.upper),
+                borderColor: thresholds.upperColor || '#EF4444', // Rojo
+                borderWidth: 2,
+                borderDash: [5, 5],
+                fill: false,
+              },
+            ]
+          : []),
+        ...(thresholds?.lower !== undefined
+          ? [
+              {
+                label: `Umbral Inferior (${thresholds.lower})`,
+                data: Array(dates.length).fill(thresholds.lower),
+                borderColor: thresholds.lowerColor || '#10B981', // Verde
+                borderWidth: 2,
+                borderDash: [5, 5],
+                fill: false,
+              },
+            ]
+          : []),
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        title: {
+          display: !!options?.title,
+          text: options?.title || '',
+          color: isDarkMode ? '#E5E7EB' : '#1F2937',
+          font: { size: 16, weight: 'bold' },
+        },
+        legend: {
+          position: 'top',
+          labels: {
+            color: isDarkMode ? '#D1D5DB' : '#4B5563',
+          },
+        },
+      },
+      scales: {
+        x: {
+          title: {
+            display: !!options?.xAxisLabel,
+            text: options?.xAxisLabel || '',
+            color: isDarkMode ? '#E5E7EB' : '#1F2937',
+          },
+          ticks: {
+            color: isDarkMode ? '#D1D5DB' : '#4B5563',
+          },
+          grid: {
+            color: isDarkMode ? '#4B5563' : '#E5E7EB',
+          },
+        },
+        y: {
+          title: {
+            display: !!options?.yAxisLabel,
+            text: options?.yAxisLabel || '',
+            color: isDarkMode ? '#E5E7EB' : '#1F2937',
+          },
+          ticks: {
+            color: isDarkMode ? '#D1D5DB' : '#4B5563',
+          },
+          grid: {
+            color: isDarkMode ? '#4B5563' : '#E5E7EB',
+          },
+        },
+      },
+    },
+  };
+};
+export const prepareCorrelationHeatmap = (
+  assets: string[],
+  matrix: number[][],
+  options?: {
+    title?: string;
+    isDarkMode?: boolean;
+  }
+) => {
+  const isDarkMode = options?.isDarkMode || false;
+
+  return {
+    data: {
+      labels: assets,
+      datasets: [
+        {
+          data: matrix.flat(),
+          backgroundColor: generateColorPalette(matrix.flat(), isDarkMode),
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        title: {
+          display: !!options?.title,
+          text: options?.title || '',
+          color: isDarkMode ? '#E5E7EB' : '#1F2937',
+          font: { size: 16, weight: 'bold' },
+        },
+        legend: {
+          display: false,
+        },
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: isDarkMode ? '#D1D5DB' : '#4B5563',
+          },
+          grid: {
+            color: isDarkMode ? '#4B5563' : '#E5E7EB',
+          },
+        },
+        y: {
+          ticks: {
+            color: isDarkMode ? '#D1D5DB' : '#4B5563',
+          },
+          grid: {
+            color: isDarkMode ? '#4B5563' : '#E5E7EB',
+          },
+        },
+      },
+    },
+  };
+};
+
+export const prepareBacktestChart = (
+  dates: string[],
+  balance: number[],
+  trades: { entryDate: string; exitDate: string; profit: number }[],
+  options?: {
+    title?: string;
+    balanceLabel?: string;
+    buyColor?: string;
+    sellColor?: string;
+    isDarkMode?: boolean;
+  }
+) => {
+  const isDarkMode = options?.isDarkMode || false;
+
+  return {
+    data: {
+      labels: dates,
+      datasets: [
+        {
+          label: options?.balanceLabel || 'Balance',
+          data: balance,
+          borderColor: options?.buyColor || '#3B82F6', // Azul
+          backgroundColor: hexToRgba(options?.buyColor || '#3B82F6', 0.2),
+          borderWidth: 2,
+          pointRadius: 0,
+          fill: false,
+        },
+        {
+          label: 'Operaciones',
+          data: trades.map((trade) => ({
+            x: trade.exitDate,
+            y: balance[dates.indexOf(trade.exitDate)],
+          })),
+          borderColor: options?.sellColor || '#EF4444', // Rojo
+          backgroundColor: hexToRgba(options?.sellColor || '#EF4444', 0.5),
+          borderWidth: 2,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        title: {
+          display: !!options?.title,
+          text: options?.title || '',
+          color: isDarkMode ? '#E5E7EB' : '#1F2937',
+          font: { size: 16, weight: 'bold' },
+        },
+        legend: {
+          position: 'top',
+          labels: {
+            color: isDarkMode ? '#D1D5DB' : '#4B5563',
+          },
+        },
+      },
+      scales: {
+        x: {
+          title: {
+            display: true,
+            text: 'Fecha',
+            color: isDarkMode ? '#E5E7EB' : '#1F2937',
+          },
+          ticks: {
+            color: isDarkMode ? '#D1D5DB' : '#4B5563',
+          },
+          grid: {
+            color: isDarkMode ? '#4B5563' : '#E5E7EB',
+          },
+        },
+        y: {
+          title: {
+            display: true,
+            text: 'Balance',
+            color: isDarkMode ? '#E5E7EB' : '#1F2937',
+          },
+          ticks: {
+            color: isDarkMode ? '#D1D5DB' : '#4B5563',
+          },
+          grid: {
+            color: isDarkMode ? '#4B5563' : '#E5E7EB',
+          },
+        },
+      },
+    },
+  };
+};
+
+export const preparePortfolioChart = (
+  assets: string[],
+  allocations: number[],
+  options?: {
+    title?: string;
+    isDarkMode?: boolean;
+  }
+) => {
+  const isDarkMode = options?.isDarkMode || false;
+
+  return {
+    data: {
+      labels: assets,
+      datasets: [
+        {
+          data: allocations,
+          backgroundColor: generateColorPalette(allocations, isDarkMode),
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        title: {
+          display: !!options?.title,
+          text: options?.title || '',
+          color: isDarkMode ? '#E5E7EB' : '#1F2937',
+          font: { size: 16, weight: 'bold' },
+        },
+        legend: {
+          position: 'right',
+          labels: {
+            color: isDarkMode ? '#D1D5DB' : '#4B5563',
+          },
+        },
+      },
+    },
+  };
+};
+
+
+export const hexToRgba = (hex: string, alpha: number = 1): string => {
+  const cleanedHex = hex.replace('#', '');
+  const r = parseInt(cleanedHex.slice(0, 2), 16);
+  const g = parseInt(cleanedHex.slice(2, 4), 16);
+  const b = parseInt(cleanedHex.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+export const generateColorPalette = (values: number[], isDarkMode: boolean): string[] => {
+  const baseColors = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6'];
+  return values.map((_, i) => hexToRgba(baseColors[i % baseColors.length], isDarkMode ? 0.8 : 0.6));
+};

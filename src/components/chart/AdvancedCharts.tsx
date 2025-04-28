@@ -1,28 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { Line, Bar, Doughnut } from 'react-chart-2';
+import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { ChartData, ChartOptions, ChartDataset  } from 'chart.js';
 import { TooltipItem } from 'chart.js';
 import LoadingSpinner from '../ui/LoadingSpinner';
 // import { ChartDataset } from 'chart.js';
-import { 
-  prepareLineChartData, 
- // prepareBarChartData, 
+import { prepareLineChartData} from '../../utils/chartUtils';
+// import { prepareBarChartData} from '../../utils/chartUtils';
+import {
   preparePredictionChartData,
   prepareTechnicalIndicatorChart,
   prepareCorrelationHeatmap,
   prepareBacktestChart,
-  preparePortfolioChart
-} from '../utils/chartUtils.ts';
-import { useTheme } from '../hooks/useAppState';
+  preparePortfolioChart  
+} from '../../utils/chartUtils'; 
+import { useTheme } from '../../hooks/useAppState';
 import { 
   calculateSMA, 
   calculateEMA, 
- // calculateRSI, 
+  //calculateRSI, 
  // calculateMACD,
   calculateBollingerBands,
  // calculateVolatility,
  // calculateCorrelation
-} from '../utils/calculationUtils';
+} from '../../utils/calculationUtils';
 
 interface AdvancedPriceChartProps {
   data: {
