@@ -723,7 +723,7 @@ export const calculateHistoricalVolatility = (
  * @param period Período para el RSI
  * @returns Array con el RSI
  */
-  export const calculateOptimizedRSI = (
+export const calculateOptimizedRSI = (
     data: number[],
     period: number = 14
   ): number[] => {
@@ -757,4 +757,5 @@ export const calculateHistoricalVolatility = (
     }
 
     return result;
-  };
+
+};
