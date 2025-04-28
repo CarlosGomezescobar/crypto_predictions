@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, {useEffect } from 'react';
 import { useTheme } from '../hooks/useAppState';
 import {
   usePrediction,
@@ -8,7 +8,8 @@ import {
 import {
   calculateRSI,
   calculateMACD,
-  calculateVolatility,
+  
+  //calculateVolatility,
 } from '../utils/calculationUtils';
 import {
   formatCurrency,

@@ -7,18 +7,18 @@ import { MarketSentiment } from '../types';
 class MarketSentimentService {
   private static instance: MarketSentimentService;
   private apiUrl: string;
-  
+
   private constructor() {
     this.apiUrl = import.meta.env.VITE_ALTERNATIVE_ME_API_URL || 'https://api.alternative.me/fng/';
   }
-  
+
   public static getInstance(): MarketSentimentService {
     if (!MarketSentimentService.instance) {
       MarketSentimentService.instance = new MarketSentimentService();
     }
     return MarketSentimentService.instance;
   }
-  
+
   /**
    * Obtiene el índice de miedo y codicia actual
    * @returns Datos de sentimiento de mercado
@@ -27,14 +27,14 @@ class MarketSentimentService {
     try {
       const response = await axios.get(this.apiUrl);
       const data = response.data;
-      
+  
       if (!data || !data.data || !data.data[0]) {
         throw new Error('Formato de respuesta inválido');
       }
-      
+  
       const fgData = data.data[0];
       const fgValue = parseInt(fgData.value);
-      
+  
       // Determinar categoría
       let fearGreedCategory: 'Extreme Fear' | 'Fear' | 'Neutral' | 'Greed' | 'Extreme Greed';
       if (fgValue <= 20) {
@@ -48,11 +48,11 @@ class MarketSentimentService {
       } else {
         fearGreedCategory = 'Extreme Greed';
       }
-      
+  
       // Determinar tendencia del mercado
       let marketTrend: 'bullish' | 'bearish' | 'neutral';
       let confidence: number;
-      
+  
       if (fgValue >= 70) {
         marketTrend = 'bullish';
         confidence = (fgValue - 70) / 30;
@@ -63,25 +63,45 @@ class MarketSentimentService {
         marketTrend = 'neutral';
         confidence = 1 - Math.abs(fgValue - 50) / 20;
       }
-      
+  
       return {
-        fearGreedIndex: fgValue,
-        fearGreedCategory,
-        marketTrend,
-        confidence
+        current: {
+          fearGreedIndex: fgValue,
+          fearGreedCategory,
+          marketTrend,
+          confidence, // Añadimos confidence aquí
+          socialMediaSentiment: 0, // Valor por defecto
+          newsSentiment: 0, // Valor por defecto
+        },
+        history: {
+          dates: [],
+          fearGreedIndex: [],
+          socialMediaSentiment: [],
+          newsSentiment: [],
+        },
       };
     } catch (error) {
       console.error('Error al obtener índice de miedo y codicia:', error);
       // Devolver valores por defecto en caso de error
       return {
-        fearGreedIndex: 50,
-        fearGreedCategory: 'Neutral',
-        marketTrend: 'neutral',
-        confidence: 0.5
+        current: {
+          fearGreedIndex: 50,
+          fearGreedCategory: 'Neutral',
+          marketTrend: 'neutral',
+          confidence: 0.5, // Valor por defecto para confidence
+          socialMediaSentiment: 0,
+          newsSentiment: 0,
+        },
+        history: {
+          dates: [],
+          fearGreedIndex: [],
+          socialMediaSentiment: [],
+          newsSentiment: [],
+        },
       };
     }
   }
-  
+
   /**
    * Obtiene el historial del índice de miedo y codicia
    * @param days Número de días a obtener
@@ -95,22 +115,28 @@ class MarketSentimentService {
     try {
       const response = await axios.get(`${this.apiUrl}?limit=${days}`);
       const data = response.data;
-      
+
       if (!data || !data.data) {
         throw new Error('Formato de respuesta inválido');
       }
-      
-      const history = data.data.reverse();
+
+      interface FearGreedHistoryItem {
+        timestamp: string;
+        value: string;
+        value_classification: string;
+      }
+
+      const history = data.data.reverse() as FearGreedHistoryItem[];
       const dates: string[] = [];
       const values: number[] = [];
       const categories: string[] = [];
-      
-      history.forEach((item: any) => {
+
+      history.forEach((item: FearGreedHistoryItem) => {
         dates.push(item.timestamp);
         values.push(parseInt(item.value));
         categories.push(item.value_classification);
       });
-      
+
       return { dates, values, categories };
     } catch (error) {
       console.error('Error al obtener historial de miedo y codicia:', error);

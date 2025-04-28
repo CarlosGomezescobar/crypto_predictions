@@ -32,36 +32,36 @@ export type PriceData = {
   price: number;
   volume?: number; // Volumen es opcional
 };
-// export const createPriceData = (
-//   date: Date,
-//   price: number,
-//   volume?: number
-// ): PriceData | null => {
-//   // Validar que el precio sea un número positivo
-//   if (typeof price !== 'number' || price <= 0) {
-//     console.error('El precio debe ser un número positivo.');
-//     return null;
-//   }
+export const createPriceData = (
+  date: Date,
+  price: number,
+  volume?: number
+): PriceData | null => {
+  // Validar que el precio sea un número positivo
+  if (typeof price !== 'number' || price <= 0) {
+    console.error('El precio debe ser un número positivo.');
+    return null;
+  }
 
-//   // Validar que la fecha sea válida
-//   if (!(date instanceof Date) || isNaN(date.getTime())) {
-//     console.error('La fecha proporcionada no es válida.');
-//     return null;
-//   }
+  // Validar que la fecha sea válida
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    console.error('La fecha proporcionada no es válida.');
+    return null;
+  }
 
-//   // Validar que el volumen, si está presente, sea un número positivo
-//   if (volume !== undefined && (typeof volume !== 'number' || volume < 0)) {
-//     console.error('El volumen debe ser un número positivo o cero.');
-//     return null;
-//   }
+  // Validar que el volumen, si está presente, sea un número positivo
+  if (volume !== undefined && (typeof volume !== 'number' || volume < 0)) {
+    console.error('El volumen debe ser un número positivo o cero.');
+    return null;
+  }
 
-//   // Retornar el objeto PriceData validado
-//   return {
-//     date,
-//     price,
-//     volume,
-//   };
-// };
+  // Retornar el objeto PriceData validado
+  return {
+    date,
+    price,
+    volume,
+  };
+};
 // Interfaces para análisis técnico
 export interface TechnicalIndicator {
   name: string;
@@ -316,6 +316,7 @@ export interface MarketSentiment {
     fearGreedIndex: number;
     fearGreedCategory: string;
     marketTrend: 'bullish' | 'bearish' | 'neutral';
+    confidence: number; // Añadir esta línea
     socialMediaSentiment: number;
     newsSentiment: number;
   };
@@ -373,6 +374,16 @@ export interface TableColumn<T> {
   render?: <K extends keyof T>(value: T[K], row: T) => React.ReactNode;
   sortable?: boolean;
   width?: string;
+}
+
+export interface ApiKeys {
+  glassnodeApiKey?: string; // Clave para Glassnode API
+  cryptopanicApiKey?: string; // Clave para CryptoPanic API
+  alternativeMeApiKey?: string; // Clave para Alternative.me API
+  binanceApiKey?: string; // Clave para Binance API
+  binanceSecretKey?: string; // Clave secreta para Binance API
+  coinbaseApiKey?: string; // Clave para Coinbase API
+  coinbaseSecretKey?: string; // Clave secreta para Coinbase API
 }
 
 // Interfaces para servicios API

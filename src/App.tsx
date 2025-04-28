@@ -1,81 +1,92 @@
-import React from 'react';
+// src/App.tsx
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import Dashboard from './views/Dashboard';
 import DataVisualization from './views/DataVisualization';
 import PredictionView from './views/PredictionView';
 import TradingSignalsView from './views/TradingSignalsView';
 import IntegrationTest from './views/IntegrationTest';
-import { useTheme } from './hooks/useAppState';
+import { useAppState } from './hooks/useAppState';
+import { useTheme } from './hooks/useTheme';
+import LoadingSpinner from './components/ui/LoadingSpinner';
+import Alert from './components/ui/Alerts';
 
 const App: React.FC = () => {
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, toggleTheme } = useTheme();
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Simulación de carga inicial
+  useEffect(() => {
+    const initializeApp = async () => {
+      try {
+        // Aquí puedes agregar cualquier lógica de inicialización necesaria
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulación de carga
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeApp();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-red-50 dark:bg-red-900">
+        <Alert type="error" message={`Error al cargar la aplicación: ${error}`} />
+      </div>
+    );
+  }
 
   return (
     <Router>
-      <div className={isDarkMode ? 'dark' : ''}>
-        <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white">
-          <nav className="bg-white dark:bg-gray-800 shadow-md">
-            <div className="container mx-auto px-4">
-              <div className="flex justify-between h-16">
-                <div className="flex">
-                  <div className="flex-shrink-0 flex items-center">
-                    <span className="text-xl font-bold text-blue-600 dark:text-blue-400">CryptoPrediction</span>
-                  </div>
-                  <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                    <Link
-                      to="/"
-                      className="border-transparent text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white hover:border-gray-300 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-                    >
-                      Dashboard
-                    </Link>
-                    <Link
-                      to="/visualization"
-                      className="border-transparent text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white hover:border-gray-300 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-                    >
-                      Visualización
-                    </Link>
-                    <Link
-                      to="/prediction"
-                      className="border-transparent text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white hover:border-gray-300 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-                    >
-                      Predicción
-                    </Link>
-                    <Link
-                      to="/trading"
-                      className="border-transparent text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white hover:border-gray-300 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-                    >
-                      Señales
-                    </Link>
-                    <Link
-                      to="/test"
-                      className="border-transparent text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white hover:border-gray-300 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-                    >
-                      Pruebas
-                    </Link>
-                  </div>
-                </div>
-              </div>
+      <div className={`min-h-screen ${isDarkMode ? 'dark bg-gray-900' : 'bg-gray-100'}`}>
+        {/* Barra de navegación */}
+        <nav className="bg-white dark:bg-gray-800 shadow-md">
+          <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+            <Link to="/" className="text-xl font-bold text-blue-600 dark:text-blue-400">
+              CryptoPrediction
+            </Link>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={toggleTheme}
+                className="px-4 py-2 rounded-md text-sm font-medium bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600"
+              >
+                {isDarkMode ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro'}
+              </button>
             </div>
-          </nav>
+          </div>
+        </nav>
 
-          <main className="py-6">
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/visualization" element={<DataVisualization />} />
-              <Route path="/prediction" element={<PredictionView />} />
-              <Route path="/trading" element={<TradingSignalsView />} />
-              <Route path="/test" element={<IntegrationTest />} />
-            </Routes>
-          </main>
+        {/* Contenido principal */}
+        <main className="container mx-auto px-4 py-6">
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/data-visualization" element={<DataVisualization />} />
+            <Route path="/prediction" element={<PredictionView />} />
+            <Route path="/trading-signals" element={<TradingSignalsView />} />
+            <Route path="/integration-test" element={<IntegrationTest />} />
+          </Routes>
+        </main>
 
-          <footer className="bg-white dark:bg-gray-800 shadow-inner py-4">
-            <div className="container mx-auto px-4">
-              <div className="text-center text-sm text-gray-500 dark:text-gray-400">
-                Sistema de Predicción de Criptomonedas © {new Date().getFullYear()}
-              </div>
+        {/* Pie de página */}
+        <footer className="bg-white dark:bg-gray-800 shadow-inner py-4">
+          <div className="container mx-auto px-4">
+            <div className="text-center text-sm text-gray-500 dark:text-gray-400">
+              Sistema de Predicción de Criptomonedas © Ing Carlos Gomez {new Date().getFullYear()}
             </div>
-          </footer>
-        </div>
+          </div>
+        </footer>
       </div>
     </Router>
   );

@@ -8,7 +8,7 @@ import {
   TradingSignal 
 } from '../types';
 import { useAppState } from './useAppState';
-import { useDataCache } from './usePerformance';
+import { useDataCache } from  './usePerfomance';
 
 // Opciones de entrenamiento predeterminadas
 const defaultTrainingOptions: TrainingOptions = {
