@@ -1290,12 +1290,19 @@ class CryptoPredictionSystem {
   private mlPredictor: MachineLearningPredictor;
   private riskManager: typeof RiskManagement;
   private visualizer: typeof Visualization;
-  
-  private priceData: DataFrame | null;
+  private glassnodeApiKey: string | null = null;
+  private binanceApiKey: string | null = null;
+  private binanceSecretKey: string | null = null;
+  private coinbaseApiKey: string | null = null;
+  private coinbaseSecretKey: string | null = null;
+  private priceData: PriceData | null = null;
+  private predictionResults: PredictionResult | null = null;
+  private combinedData: CombinedData | null = null;
+ // private priceData: DataFrame | null;
   private onchainData: { [key: string]: DataFrame | null } | null;
   private fearGreedData: DataFrame | null;
   private exchangeReservesData: DataFrame | null;
-  private combinedData: DataFrame | null;
+  
   
   private modelTrained: boolean;
   private predictionResults: {
@@ -1314,7 +1321,7 @@ class CryptoPredictionSystem {
     this.mlPredictor = new MachineLearningPredictor();
     this.riskManager = RiskManagement;
     this.visualizer = Visualization;
-    
+        
     this.priceData = null;
     this.onchainData = null;
     this.fearGreedData = null;
@@ -1331,6 +1338,26 @@ class CryptoPredictionSystem {
    */
   setGlassnodeApiKey(apiKey: string): void {
     this.dataCollector.setGlassnodeApiKey(apiKey);
+  }
+  public setBinanceApiKeys(apiKey: string, secretKey: string): void {
+    this.binanceApiKey = apiKey;
+    this.binanceSecretKey = secretKey;
+  }
+
+  public setCoinbaseApiKeys(apiKey: string, secretKey: string): void {
+    this.coinbaseApiKey = apiKey;
+    this.coinbaseSecretKey = secretKey;
+  }
+  public getPriceData(): PriceData | null {
+    return this.priceData;
+  }
+
+  // Método para obtener resultados de predicción
+  public getPredictionResults(): PredictionResult | null {
+    return this.predictionResults;
+  }
+  public getCombinedData(): CombinedData | null {
+    return this.combinedData;
   }
 
   /**

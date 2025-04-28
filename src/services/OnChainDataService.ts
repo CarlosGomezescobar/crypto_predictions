@@ -1,9 +1,10 @@
 import axios from 'axios';
 import { ApiKeys } from '../types';
 
-/**
- * Servicio para obtener datos on-chain y fundamentales de criptomonedas
- */
+interface GlassnodeApiResponse {
+  t: number; // Timestamp (en segundos)
+  v: number; // Valor (SOPR)
+}
 class OnChainDataService {
   private static instance: OnChainDataService;
   private glassnodeApiKey: string | null = null;
@@ -46,28 +47,29 @@ class OnChainDataService {
       if (!this.glassnodeApiKey) {
         throw new Error('API key de Glassnode no configurada');
       }
-      
+  
       const response = await axios.get(`${this.baseUrl}/metrics/distribution/balance_exchanges`, {
         params: {
           a: asset,
           s: since,
           u: until,
-          api_key: this.glassnodeApiKey
-        }
+          api_key: this.glassnodeApiKey,
+        },
       });
-      
+  
       if (!Array.isArray(response.data)) {
         throw new Error('Formato de respuesta inválido');
       }
-      
+  
       const timestamps: number[] = [];
       const values: number[] = [];
-      
-      response.data.forEach((item: any) => {
+  
+      // Usar la interfaz GlassnodeApiResponse para tipar item
+      response.data.forEach((item: GlassnodeApiResponse) => {
         timestamps.push(item.t);
         values.push(item.v);
       });
-      
+  
       return { timestamp: timestamps, value: values };
     } catch (error) {
       console.error('Error al obtener reservas de exchanges:', error);
@@ -91,28 +93,29 @@ class OnChainDataService {
       if (!this.glassnodeApiKey) {
         throw new Error('API key de Glassnode no configurada');
       }
-      
+  
       const response = await axios.get(`${this.baseUrl}/metrics/addresses/active_count`, {
         params: {
           a: asset,
           s: since,
           u: until,
-          api_key: this.glassnodeApiKey
-        }
+          api_key: this.glassnodeApiKey,
+        },
       });
-      
+  
       if (!Array.isArray(response.data)) {
         throw new Error('Formato de respuesta inválido');
       }
-      
+  
       const timestamps: number[] = [];
       const values: number[] = [];
-      
-      response.data.forEach((item: any) => {
+  
+      // Usar la interfaz GlassnodeApiResponse para tipar item
+      response.data.forEach((item: GlassnodeApiResponse) => {
         timestamps.push(item.t);
         values.push(item.v);
       });
-      
+  
       return { timestamp: timestamps, value: values };
     } catch (error) {
       console.error('Error al obtener direcciones activas:', error);
@@ -153,7 +156,7 @@ class OnChainDataService {
       const timestamps: number[] = [];
       const values: number[] = [];
       
-      response.data.forEach((item: any) => {
+      response.data.forEach((item: GlassnodeApiResponse) => {
         timestamps.push(item.t);
         values.push(item.v);
       });
@@ -198,7 +201,7 @@ class OnChainDataService {
       const timestamps: number[] = [];
       const values: number[] = [];
       
-      response.data.forEach((item: any) => {
+      response.data.forEach((item: GlassnodeApiResponse) => {
         timestamps.push(item.t);
         values.push(item.v);
       });

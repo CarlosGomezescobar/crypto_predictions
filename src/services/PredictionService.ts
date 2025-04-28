@@ -1,11 +1,12 @@
-import { CryptoDataCollector, TechnicalAnalysis, FundamentalAnalysis, MachineLearningPredictor, RiskManagement, Visualization, CryptoPredictionSystem } from '../services/crypto_prediction_system';
+import { CryptoPredictionSystem } from '../services/crypto_prediction_system';
+import { PriceData, PredictionResult, CombinedData } from '../types';
 
 // Configuración de las claves API desde variables de entorno
 const glassnodeApiKey = import.meta.env.VITE_GLASSNODE_API_KEY;
-const binanceApiKey = import.meta.env.VITE_CCXT_BINANCE_API_KEY;
-const binanceSecretKey = import.meta.env.VITE_CCXT_BINANCE_SECRET_KEY;
-const coinbaseApiKey = import.meta.env.VITE_CCXT_COINBASE_API_KEY;
-const coinbaseSecretKey = import.meta.env.VITE_CCXT_COINBASE_SECRET_KEY;
+const binanceApiKey = import.meta.env.VITE_BINANCE_API_KEY;
+const binanceSecretKey = import.meta.env.VITE_BINANCE_SECRET_KEY;
+const coinbaseApiKey = import.meta.env.VITE_COINBASE_API_KEY;
+const coinbaseSecretKey = import.meta.env.VITE_COINBASE_SECRET_KEY;
 
 // Clase singleton para gestionar la instancia del sistema de predicción
 class PredictionService {
@@ -16,10 +17,18 @@ class PredictionService {
 
   private constructor() {
     this.cryptoSystem = new CryptoPredictionSystem();
-    
+
     // Configurar API keys si están disponibles
     if (glassnodeApiKey && glassnodeApiKey !== 'your_glassnode_api_key_here') {
       this.cryptoSystem.setGlassnodeApiKey(glassnodeApiKey);
+    }
+
+    if (binanceApiKey && binanceSecretKey) {
+      this.cryptoSystem.setBinanceApiKeys(binanceApiKey, binanceSecretKey);
+    }
+
+    if (coinbaseApiKey && coinbaseSecretKey) {
+      this.cryptoSystem.setCoinbaseApiKeys(coinbaseApiKey, coinbaseSecretKey);
     }
   }
 
@@ -45,38 +54,42 @@ class PredictionService {
       return this.initializationPromise;
     }
 
-    this.initializationPromise = new Promise<boolean>(async (resolve) => {
-      try {
-        // Paso 1: Recolectar datos
-        const dataCollected = await this.cryptoSystem.collectData(symbol, timeframe);
-        if (!dataCollected) {
-          console.error("Error al recolectar datos");
-          resolve(false);
-          return;
-        }
+    this.initializationPromise = new Promise<boolean>((resolve) => {
+      const initializeAsync = async () => {
+        try {
+          // Paso 1: Recolectar datos
+          const dataCollected = await this.cryptoSystem.collectData(symbol, timeframe);
+          if (!dataCollected) {
+            console.error('Error al recolectar datos');
+            resolve(false);
+            return;
+          }
 
-        // Paso 2: Preparar indicadores técnicos
-        const indicatorsPrepared = this.cryptoSystem.prepareTechnicalIndicators();
-        if (!indicatorsPrepared) {
-          console.error("Error al preparar indicadores técnicos");
-          resolve(false);
-          return;
-        }
+          // Paso 2: Preparar indicadores técnicos
+          const indicatorsPrepared = this.cryptoSystem.prepareTechnicalIndicators();
+          if (!indicatorsPrepared) {
+            console.error('Error al preparar indicadores técnicos');
+            resolve(false);
+            return;
+          }
 
-        // Paso 3: Combinar datos
-        const dataCombined = this.cryptoSystem.combineAllData();
-        if (!dataCombined) {
-          console.error("Error al combinar datos");
-          resolve(false);
-          return;
-        }
+          // Paso 3: Combinar datos
+          const dataCombined = this.cryptoSystem.combineAllData();
+          if (!dataCombined) {
+            console.error('Error al combinar datos');
+            resolve(false);
+            return;
+          }
 
-        this.isInitialized = true;
-        resolve(true);
-      } catch (error) {
-        console.error("Error durante la inicialización:", error);
-        resolve(false);
-      }
+          this.isInitialized = true;
+          resolve(true);
+        } catch (error) {
+          console.error('Error durante la inicialización:', error);
+          resolve(false);
+        }
+      };
+
+      initializeAsync();
     });
 
     return this.initializationPromise;
@@ -98,7 +111,7 @@ class PredictionService {
     try {
       return await this.cryptoSystem.trainPredictionModel(null, 60, predictionDays);
     } catch (error) {
-      console.error("Error durante el entrenamiento del modelo:", error);
+      console.error('Error durante el entrenamiento del modelo:', error);
       return false;
     }
   }
@@ -112,7 +125,7 @@ class PredictionService {
     try {
       return await this.cryptoSystem.predictFuturePrices(days);
     } catch (error) {
-      console.error("Error durante la predicción:", error);
+      console.error('Error durante la predicción:', error);
       return null;
     }
   }
@@ -125,7 +138,7 @@ class PredictionService {
     try {
       return this.cryptoSystem.generateTradingSignals();
     } catch (error) {
-      console.error("Error al generar señales de trading:", error);
+      console.error('Error al generar señales de trading:', error);
       return null;
     }
   }
@@ -134,39 +147,36 @@ class PredictionService {
    * Obtiene los datos de precio actuales
    * @returns Datos de precio o null si no están disponibles
    */
-  public getPriceData() {
+  public getPriceData(): PriceData | null {
     if (!this.isInitialized) {
       return null;
     }
-    
-    // Acceder a los datos internos del sistema
-    // Nota: Esto asume que hay una forma de acceder a los datos internos
-    // En una implementación real, podría ser necesario añadir métodos getter al CryptoPredictionSystem
-    return (this.cryptoSystem as any).priceData;
+
+    return this.cryptoSystem.getPriceData();
   }
 
   /**
    * Obtiene los datos combinados
    * @returns Datos combinados o null si no están disponibles
    */
-  public getCombinedData() {
+  public getCombinedData(): CombinedData | null {
     if (!this.isInitialized) {
       return null;
     }
-    
-    return (this.cryptoSystem as any).combinedData;
+
+    return this.cryptoSystem.getCombinedData();
   }
 
   /**
    * Obtiene los resultados de predicción
    * @returns Resultados de predicción o null si no están disponibles
    */
-  public getPredictionResults() {
+  public getPredictionResults(): PredictionResult | null {
     if (!this.isInitialized) {
       return null;
     }
-    
-    return (this.cryptoSystem as any).predictionResults;
+
+    return this.cryptoSystem.getPredictionResults();
   }
 }
 

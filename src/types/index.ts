@@ -469,7 +469,16 @@ export interface NotificationSettings {
   priceChangeThreshold: number; // Umbral de cambio de precio en porcentaje
   notificationMethods: ('app' | 'email' | 'push')[]; // Métodos de notificación
 }
-
+export interface CombinedData {
+  date: Date[]; // Fechas
+  close: number[]; // Precios de cierre
+  volume: number[]; // Volúmenes
+  RSI?: number[]; // Índice de Fuerza Relativa (opcional)
+  MACD?: number[]; // Media Móvil de Convergencia/Divergencia (opcional)
+  fear_greed_index?: number[]; // Índice de Miedo y Codicia (opcional)
+  exchange_reserves?: number[]; // Reservas en exchanges (opcional)
+  mvrv_z_score?: number[]; // MVRV Z-Score (opcional)
+}
 
 export const createNotificationSettings = (
   settings: Partial<NotificationSettings>
