@@ -8,17 +8,20 @@ import {
   Title,
   Tooltip,
   Legend,
-  ChartOptions
+  ChartOptions,
 } from 'chart.js';
+import { TooltipItem } from 'chart.js';
+import annotationPlugin from 'chartjs-plugin-annotation'; // Importar el plugin de anotaciones
 
-// Registrar los componentes necesarios de Chart.js
+// Registrar los componentes necesarios de Chart.js y el plugin de anotaciones
 ChartJS.register(
   CategoryScale,
   LinearScale,
   BarElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  annotationPlugin // Registrar el plugin de anotaciones
 );
 
 interface IndicatorChartProps {
@@ -42,7 +45,7 @@ const IndicatorChart: React.FC<IndicatorChartProps> = ({
   thresholdLabel = 'Umbral',
   height = 300,
   width = 600,
-  className = ''
+  className = '',
 }) => {
   const data = {
     labels,
@@ -50,16 +53,16 @@ const IndicatorChart: React.FC<IndicatorChartProps> = ({
       {
         label: title,
         data: values,
-        backgroundColor: values.map(value => 
-          threshold !== undefined 
-            ? value > threshold 
+        backgroundColor: values.map((value) =>
+          threshold !== undefined
+            ? value > threshold
               ? 'rgba(255, 99, 132, 0.5)' // Rojo si supera el umbral
               : 'rgba(54, 162, 235, 0.5)' // Azul si está por debajo
             : color
         ),
-        borderColor: values.map(value => 
-          threshold !== undefined 
-            ? value > threshold 
+        borderColor: values.map((value) =>
+          threshold !== undefined
+            ? value > threshold
               ? 'rgb(255, 99, 132)' // Rojo si supera el umbral
               : 'rgb(54, 162, 235)' // Azul si está por debajo
             : color
@@ -82,7 +85,7 @@ const IndicatorChart: React.FC<IndicatorChartProps> = ({
       },
       tooltip: {
         callbacks: {
-          label: function(context) {
+          label: function (context: TooltipItem<'bar'>) {
             let label = context.dataset.label || '';
             if (label) {
               label += ': ';
@@ -91,9 +94,10 @@ const IndicatorChart: React.FC<IndicatorChartProps> = ({
               label += context.parsed.y.toFixed(2);
             }
             return label;
-          }
-        }
-      }
+          },
+        },
+      },
+      annotation: {}, // Inicializar el objeto de anotaciones
     },
     scales: {
       y: {
@@ -104,24 +108,24 @@ const IndicatorChart: React.FC<IndicatorChartProps> = ({
 
   // Añadir línea de umbral si se proporciona
   if (threshold !== undefined) {
-    options.plugins = {
-      ...options.plugins,
-      annotation: {
-        annotations: {
-          line1: {
-            type: 'line',
-            yMin: threshold,
-            yMax: threshold,
-            borderColor: 'rgb(255, 99, 132)',
-            borderWidth: 2,
-            label: {
-              display: true,
-              content: thresholdLabel,
-              position: 'end'
-            }
-          }
-        }
-      }
+    // Inicializar plugins si no está definido
+    options.plugins = options.plugins || {};
+
+    options.plugins.annotation = {
+      annotations: {
+        line1: {
+          type: 'line',
+          yMin: threshold,
+          yMax: threshold,
+          borderColor: 'rgb(255, 99, 132)',
+          borderWidth: 2,
+          label: {
+            display: true,
+            content: thresholdLabel,
+            position: 'end',
+          },
+        },
+      },
     };
   }
 

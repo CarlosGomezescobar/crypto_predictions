@@ -16,12 +16,13 @@ import {
   formatPercent,
   formatDate,
 } from '../utils/calculationUtils';
-import Card from '../components/Card';
-import PriceChart from '../components/PriceChart';
-import Table from '../components/Table';
-import Alert from '../components/Alerts';
-import LoadingSpinner from '../components/LoadingSpinner';
-import Button from '../components/Button';
+
+import Card from '../components/ui/Card';
+import PriceChart from '../components/chart/PriceChart';
+// import Table from  '../components/ui/Table';
+import Alert from '../components/ui/Alerts';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
+import Button from '../components/ui/Button';
 
 /**
  * Vista principal del dashboard

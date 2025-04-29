@@ -7,7 +7,7 @@ import {
   TrainingOptions, 
   TradingSignal 
 } from '../types';
-import { useAppState } from './useAppState';
+import { useAppState } from './AppState';
 import { useDataCache } from  './usePerfomance';
 
 // Opciones de entrenamiento predeterminadas

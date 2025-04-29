@@ -3,9 +3,9 @@ import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { ChartData, ChartOptions, ChartDataset  } from 'chart.js';
 import { TooltipItem } from 'chart.js';
 import LoadingSpinner from '../ui/LoadingSpinner';
-// import { ChartDataset } from 'chart.js';
+
 import { prepareLineChartData} from '../../utils/chartUtils';
-// import { prepareBarChartData} from '../../utils/chartUtils';
+
 import {
   preparePredictionChartData,
   prepareTechnicalIndicatorChart,

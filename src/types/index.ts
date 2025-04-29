@@ -513,3 +513,11 @@ export const createNotificationSettings = (
 
   return validatedSettings;
 };
+export interface PredictionHistoryItem {
+  symbol: string;
+  date: string;
+  predictionDays: number;
+  predictions: number[];
+  actualPrices?: number[];
+  accuracy?: number;
+}

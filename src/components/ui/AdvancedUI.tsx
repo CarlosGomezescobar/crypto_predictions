@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ThemeColors } from '../types';
+// import { ThemeColors } from '../../types';
 
 interface ThemeSwitcherProps {
   isDarkMode: boolean;

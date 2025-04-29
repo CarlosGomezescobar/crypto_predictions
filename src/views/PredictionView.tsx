@@ -1,10 +1,10 @@
 import React from 'react';
-import Card from '../components/Card';
-import PredictionChart from '../components/PredictionChart';
-import Button from '../components/Button';
-import Alert from '../components/Alert';
-import LoadingSpinner from '../components/LoadingSpinner';
-import Table from '../components/Table';
+import Card from '../components/ui/Card';
+import PredictionChart from '../components/chart/PredictionChart';
+import Button from '../components/ui/Button';
+import Alert from '../components/ui/Alerts';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
+import Table from '../components/ui/Table';
 import { usePrediction, useTrainModel, usePriceData } from '../hooks/usePrediction';
 
 interface PredictionViewProps {

@@ -1,9 +1,13 @@
 import React from 'react';
-import Card from '../components/Card';
-import Button from '../components/Button';
-import Alert from '../components/Alert';
-import LoadingSpinner from '../components/LoadingSpinner';
-import Table from '../components/Table';
+import Card from '../components/ui/Card';
+
+import Table from '../components/ui/Table';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
+
+import Button from '../components/ui/Button';
+import Alert from '../components/ui/Alerts';
+
+
 import { useTradingSignals, usePriceData } from '../hooks/usePrediction';
 
 interface TradingSignalsViewProps {

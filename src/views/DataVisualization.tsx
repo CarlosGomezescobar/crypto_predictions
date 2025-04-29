@@ -1,9 +1,9 @@
 import React from 'react';
-import Card from '../components/Card';
-import PriceChart from '../components/PriceChart';
-import IndicatorChart from '../components/IndicatorChart';
-import Table from '../components/Table';
-import LoadingSpinner from '../components/LoadingSpinner';
+import Card from '../components/ui/Card';
+import PriceChart from '../components/chart/PriceChart';
+import IndicatorChart from '../components/chart/IndicatorChart';
+import Table from '../components/ui/Table';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { usePriceData } from '../hooks/usePrediction';
 
 interface DataVisualizationProps {

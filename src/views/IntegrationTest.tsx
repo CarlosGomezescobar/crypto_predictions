@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { useAppState } from '../hooks/useAppState';
+import { useAppState } from '../hooks/AppState';
 import { usePrediction } from '../hooks/usePrediction';
 import { useAnalysis } from '../hooks/useAnalysis';
-import { useDebounce, useDataCache, usePerformanceMeasure } from '../hooks/usePerformance';
-import { formatCurrency, formatPercent } from '../utils/calculationUtils';
-import { Card, Button, Alert, LoadingSpinner } from '../components/';
-import { AdvancedPriceChart, TechnicalIndicatorChart } from '../components/AdvancedCharts';
+import { useDebounce, useDataCache, usePerformanceMeasure } from '../hooks/usePerfomance';
+import { formatCurrency, formatPercent } from  '../utils/calculationUtils'; //'../utils/calculationUtils';
+import Card from '../components/ui/Card';
+import Button from '../components/ui/Button';
+import Alert from '../components/ui/Alerts';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { AdvancedPriceChart, TechnicalIndicatorChart } from '../components/chart/AdvancedCharts';
 
 /**
  * Componente de prueba para verificar la integración de todas las mejoras

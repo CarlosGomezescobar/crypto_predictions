@@ -6,11 +6,13 @@ import { useCallback, useEffect, useState } from 'react';
  * @param dependencies Dependencias para recalcular
  * @returns Resultado memoizado
  */
-export function useMemoizedCallback<T, Args extends any[]>(
+export function useMemoizedCallback<T, Args extends unknown[]>(
   fn: (...args: Args) => T,
   dependencies: React.DependencyList
 ): [(...args: Args) => T, boolean] {
   const [isComputing, setIsComputing] = useState(false);
+
+  // Asegúrate de que las dependencias sean un array literal
   const memoizedFn = useCallback((...args: Args) => {
     setIsComputing(true);
     try {
@@ -18,17 +20,11 @@ export function useMemoizedCallback<T, Args extends any[]>(
     } finally {
       setIsComputing(false);
     }
-  }, dependencies);
+  }, [...dependencies]);
 
   return [memoizedFn, isComputing];
 }
 
-/**
- * Hook para debounce de valores
- * @param value Valor a debounce
- * @param delay Tiempo de espera en ms
- * @returns Valor con debounce
- */
 export function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
@@ -51,7 +47,7 @@ export function useDebounce<T>(value: T, delay: number): T {
  * @param delay Tiempo de espera en ms
  * @returns Función con throttle
  */
-export function useThrottle<T extends (...args: any[]) => any>(
+export function useThrottle<T extends (...args: Args[]) => ReturnType<T>, Args extends unknown[]>(
   fn: T,
   delay: number
 ): T {
@@ -188,7 +184,7 @@ export function useDataCache<T>(
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [lastFetched, setLastFetched] = useState(0);
-  
+
   // Verificar caché en localStorage al montar
   useEffect(() => {
     const cachedData = localStorage.getItem(`cache_${key}`);
@@ -201,15 +197,15 @@ export function useDataCache<T>(
           setLastFetched(timestamp);
           return;
         }
-      } catch (err) {
+      } catch {
         // Ignorar errores de parsing
       }
     }
-    
+
     // Si no hay caché válida, cargar datos
     refresh();
   }, [key]);
-  
+
   // Función para refrescar datos
   const refresh = useCallback(async () => {
     setIsLoading(true);
@@ -219,49 +215,49 @@ export function useDataCache<T>(
       setData(result);
       const now = Date.now();
       setLastFetched(now);
-      
+
       // Guardar en caché
       localStorage.setItem(
         `cache_${key}`,
         JSON.stringify({ data: result, timestamp: now })
       );
-      
+
       return result;
     } catch (err) {
-      const error = err instanceof Error ? err : new Error(String(err));
-      setError(error);
-      throw error;
+      console.error("Error al cargar los datos:", err);
+      setError(err instanceof Error ? err : new Error(String(err)));
+      throw err;
     } finally {
       setIsLoading(false);
     }
   }, [key, fetchFn, expirationTime]);
-  
+
   // Función para invalidar caché
   const invalidate = useCallback(() => {
     localStorage.removeItem(`cache_${key}`);
     setData(null);
     setLastFetched(0);
   }, [key]);
-  
+
   // Refrescar automáticamente si expira
   useEffect(() => {
     if (lastFetched === 0) return;
-    
+
     const now = Date.now();
     const timeRemaining = expirationTime - (now - lastFetched);
-    
+
     if (timeRemaining <= 0) {
       refresh();
       return;
     }
-    
+
     const timer = setTimeout(() => {
       refresh();
     }, timeRemaining);
-    
+
     return () => clearTimeout(timer);
-  }, [lastFetched, expirationTime, refresh]);
-  
+  }, [lastFetched, expirationTime, refresh]); // Incluir todas las dependencias
+
   return { data, isLoading, error, refresh, invalidate };
 }
 
