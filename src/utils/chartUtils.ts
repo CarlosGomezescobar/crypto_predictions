@@ -3,7 +3,7 @@
  */
 
 import { ChartOptions } from '../types';
-import { hexToRgba} from './calculationUtils'; // hexToRgba
+
 import { TooltipItem } from 'chart.js'; // ChartOptions
 
 export const generateChartOptions = (

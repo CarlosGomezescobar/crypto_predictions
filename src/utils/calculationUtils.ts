@@ -380,21 +380,10 @@
     if (max === min) return data.map(() => 0.5);
     
     return data.map(value => (value - min) / (max - min));
+  }
   };
   
-  export const hexToRgba = (hex: string, alpha: number = 1): string => {
-    const cleanedHex = hex.replace('#', '');
-    const r = parseInt(cleanedHex.slice(0, 2), 16);
-    const g = parseInt(cleanedHex.slice(2, 4), 16);
-    const b = parseInt(cleanedHex.slice(4, 6), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  };
-  /**
-   * Calcula la correlación entre dos arrays de datos
-   * @param data1 Primer array de datos
-   * @param data2 Segundo array de datos
-   * @returns Coeficiente de correlación (-1 a 1)
-   */
+
   export const calculateCorrelation = (data1: number[], data2: number[]): number => {
     if (data1.length !== data2.length || data1.length === 0) {
       return 0;
