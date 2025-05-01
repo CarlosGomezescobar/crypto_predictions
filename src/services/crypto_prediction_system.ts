@@ -11,14 +11,32 @@ import * as danfojs from 'danfojs';
 import * as ccxt from 'ccxt';
 import axios from 'axios';
 import * as tf from '@tensorflow/tfjs';
+import { PriceData, CombinedData  } from '../types/index'; 
 //import * as moment from 'moment';
 
 
 // Definición de interfaces
 interface DataFrame {
   index: (Date | number | string)[];
-  columns: string[];
-  [key: string]: unknown[]; 
+  close?: number[];
+  low?: number[];
+  high?: number[];
+  [key: string]: any;
+}
+
+interface MetricsResult {
+  accuracy: number;
+  precision: number;
+  recall: number;
+  f1Score: number;
+}
+
+interface PredictionResult {
+  metrics: MetricsResult;
+  yTrue: number[];
+  yPred: number[];
+  dates: Date[]; // Fechas asociadas con las predicciones
+  predictions: number[]; // Valores predichos
 }
 
 interface OHLCVData {
@@ -44,21 +62,38 @@ interface MetricsResult {
   MAE: number;
   RMSE: number;
   R2: number;
+  accuracy: number;
+  precision: number;
+  recall: number;
+  f1Score: number;
 }
 
-interface FibonacciLevels {
-  [key: string]: number;
-}
+// interface FibonacciLevels {
+//   [key: string]: number;
+// }
 
-interface SupportResistance {
-  timestamp: Date;
-  price: number;
-}
+// interface SupportResistance {
+//   timestamp: Date;
+//   price: number;
+// }
 interface TechnicalIndicator {
   name: string;
   value: number;
   signal: 'buy' | 'sell' | 'neutral';
   description?: string;
+}
+
+interface MetricsResult {
+  accuracy: number;
+  precision: number;
+  recall: number;
+  f1Score: number;
+}
+
+interface PredictionResult {
+  metrics: MetricsResult;
+  yTrue: number[];
+  yPred: number[];
 }
 /**
  * Clase para recolectar datos históricos de criptomonedas desde diferentes fuentes
@@ -216,10 +251,17 @@ class TechnicalAnalysis {
    */
   static addMovingAverages(df: DataFrame, windows: number[] = [50, 200]): DataFrame {
     const result = df.copy();
+  
+    // Validar que df.close exista
+    if (!df.close) {
+      throw new Error("La columna 'close' es requerida para calcular las medias móviles");
+    }
+  
     for (const window of windows) {
       const maColumn = `MA_${window}`;
-      result[maColumn] = this.calculateMovingAverage(df.close as number[], window);
+      result[maColumn] = this.calculateMovingAverage(df.close, window);
     }
+  
     return result;
   }
 
@@ -253,27 +295,40 @@ class TechnicalAnalysis {
     const result = df.copy();
     const closePrices = df.close as number[];
     const rsi: number[] = [];
-
+    const gains: number[] = [];
+    const losses: number[] = [];
+  
     for (let i = 0; i < closePrices.length; i++) {
       if (i === 0) {
-        rsi.push(NaN); // No hay datos previos para calcular el RSI
+        // No hay datos previos para calcular el RSI
+        rsi.push(NaN);
+        gains.push(0);
+        losses.push(0);
         continue;
       }
-
-      const gains = Math.max(0, closePrices[i] - closePrices[i - 1]);
-      const losses = Math.max(0, closePrices[i - 1] - closePrices[i]);
-
+  
+      // Calcular ganancias y pérdidas
+      const gain = Math.max(0, closePrices[i] - closePrices[i - 1]);
+      const loss = Math.max(0, closePrices[i - 1] - closePrices[i]);
+      gains.push(gain);
+      losses.push(loss);
+  
       if (i < period) {
-        rsi.push(NaN); // No hay suficientes datos para calcular el RSI
+        // No hay suficientes datos para calcular el RSI
+        rsi.push(NaN);
       } else {
-        const avgGain = rsi.slice(i - period, i).reduce((sum, val) => sum + val, 0) / period;
-        const avgLoss = rsi.slice(i - period, i).reduce((sum, val) => sum + val, 0) / period;
-
-        const rs = avgGain / (avgLoss || 1); // Evitar división por cero
+        // Calcular promedios de ganancias y pérdidas
+        const avgGain =
+          gains.slice(i - period + 1, i + 1).reduce((sum, val) => sum + val, 0) / period;
+        const avgLoss =
+          losses.slice(i - period + 1, i + 1).reduce((sum, val) => sum + val, 0) / period;
+  
+        // Evitar división por cero
+        const rs = avgGain / (avgLoss || 1);
         rsi.push(100 - 100 / (1 + rs));
       }
     }
-
+  
     result['RSI'] = rsi;
     return result;
   }
@@ -425,10 +480,19 @@ class FundamentalAnalysis {
    * @returns DataFrame con señales de compra/venta
    */
   static analyzeMvrvZScore(mvrvDf: DataFrame): DataFrame {
-    const signals = new danfojs.DataFrame([], { index: mvrvDf.index });
+    // Asegúrate de que el índice sea compatible con danfojs
+    const index = mvrvDf.index.map((val) => (val instanceof Date ? val.getTime() : val));
+  
+    // Crear un nuevo DataFrame con el índice convertido
+    const signals = new danfojs.DataFrame([], { index });
+  
+    // Copiar la columna 'mvrv_z_score'
     signals['mvrv_z_score'] = mvrvDf['mvrv_z_score'];
+  
+    // Generar señales de compra y venta
     signals['buy_signal'] = mvrvDf['mvrv_z_score'].map((val: number) => val < 0);
     signals['sell_signal'] = mvrvDf['mvrv_z_score'].map((val: number) => val > 7);
+  
     return signals;
   }
 
@@ -438,10 +502,16 @@ class FundamentalAnalysis {
    * @returns DataFrame con zonas de oportunidad
    */
   static analyzeNupl(nuplDf: DataFrame): DataFrame {
-    const zones = new danfojs.DataFrame([], { index: nuplDf.index });
+    // Asegúrate de que el índice sea compatible con danfojs
+    const index = nuplDf.index.map((val) => (val instanceof Date ? val.getTime() : val));
+  
+    // Crear un nuevo DataFrame con el índice convertido
+    const zones = new danfojs.DataFrame([], { index });
+  
     zones['nupl'] = nuplDf['nupl'];
     zones['opportunity_zone'] = nuplDf['nupl'].map((val: number) => val < 0.25);
     zones['euphoria_zone'] = nuplDf['nupl'].map((val: number) => val > 0.75);
+  
     return zones;
   }
 
@@ -451,13 +521,18 @@ class FundamentalAnalysis {
    * @returns DataFrame con tendencias de acumulación
    */
   static analyzeExchangeReserves(reservesDf: DataFrame): DataFrame {
-    const analysis = new danfojs.DataFrame([], { index: reservesDf.index });
+    // Asegúrate de que el índice sea compatible con danfojs
+    const index = reservesDf.index.map((val) => (val instanceof Date ? val.getTime() : val));
+  
+    // Crear un nuevo DataFrame con el índice convertido
+    const analysis = new danfojs.DataFrame([], { index });
+  
     analysis['exchange_reserves'] = reservesDf['exchange_reserves'];
-    
+  
     // Calcular cambio porcentual en 30 días
     const reserves = reservesDf['exchange_reserves'];
     const reserves30dChange: number[] = [];
-    
+  
     for (let i = 0; i < reserves.length; i++) {
       if (i < 30) {
         reserves30dChange.push(NaN);
@@ -466,10 +541,10 @@ class FundamentalAnalysis {
         reserves30dChange.push(pctChange);
       }
     }
-    
+  
     analysis['reserves_30d_change'] = reserves30dChange;
     analysis['accumulation_signal'] = reserves30dChange.map((val: number) => !isNaN(val) && val < -5);
-    
+  
     return analysis;
   }
 
@@ -479,10 +554,16 @@ class FundamentalAnalysis {
    * @returns DataFrame con señales basadas en extremos de mercado
    */
   static analyzeFearGreed(fgDf: DataFrame): DataFrame {
-    const signals = new danfojs.DataFrame([], { index: fgDf.index });
+    // Asegúrate de que el índice sea compatible con danfojs
+    const index = fgDf.index.map((val) => (val instanceof Date ? val.getTime() : val));
+  
+    // Crear un nuevo DataFrame con el índice convertido
+    const signals = new danfojs.DataFrame([], { index });
+  
     signals['fear_greed_index'] = fgDf['fear_greed_index'];
     signals['extreme_fear'] = fgDf['fear_greed_index'].map((val: number) => val <= 20);
     signals['extreme_greed'] = fgDf['fear_greed_index'].map((val: number) => val >= 80);
+  
     return signals;
   }
 }
@@ -494,6 +575,31 @@ class MachineLearningPredictor {
   private model: tf.Sequential | null;
   private xScaler: MinMaxScaler | null;
   private yScaler: MinMaxScaler | null;
+  private calculateAccuracy(yTrue: number[][], yPred: number[][]): number {
+    let correct = 0;
+    for (let i = 0; i < yTrue.length; i++) {
+      if (Math.abs(yTrue[i][0] - yPred[i][0]) <= 0.01) {
+        correct++;
+      }
+    }
+    return correct / yTrue.length;
+  }
+  
+  private calculatePrecision(yTrue: number[][], yPred: number[][]): number {
+    // Implementación simplificada
+    return this.calculateAccuracy(yTrue, yPred);
+  }
+  
+  private calculateRecall(yTrue: number[][], yPred: number[][]): number {
+    // Implementación simplificada
+    return this.calculateAccuracy(yTrue, yPred);
+  }
+  
+  private calculateF1Score(yTrue: number[][], yPred: number[][]): number {
+    const precision = this.calculatePrecision(yTrue, yPred);
+    const recall = this.calculateRecall(yTrue, yPred);
+    return 2 * ((precision * recall) / (precision + recall));
+  }
 
   /**
    * Inicializa el predictor de machine learning
@@ -595,7 +701,8 @@ class MachineLearningPredictor {
    */
   private dropNaN(df: DataFrame): DataFrame {
     const indices: number[] = [];
-    
+  
+    // Encontrar índices sin NaN
     for (let i = 0; i < df.index.length; i++) {
       let hasNaN = false;
       for (const col of df.columns) {
@@ -608,13 +715,17 @@ class MachineLearningPredictor {
         indices.push(i);
       }
     }
-    
-    const newDf: any = {};
+  
+    // Construir un nuevo DataFrame sin filas con NaN
+    const newDf: { [key: string]: any[] } = {};
     for (const col of df.columns) {
-      newDf[col] = indices.map(i => df[col][i]);
+      newDf[col] = indices.map((i) => df[col][i]);
     }
-    
-    return new danfojs.DataFrame(newDf, { index: indices.map(i => df.index[i]) });
+  
+    // Convertir el índice para que sea compatible con danfojs
+    const newIndex = indices.map((i) => (df.index[i] instanceof Date ? df.index[i].getTime() : df.index[i]));
+  
+    return new danfojs.DataFrame(newDf, { index: newIndex });
   }
 
   /**
@@ -719,7 +830,11 @@ class MachineLearningPredictor {
       MSE: mse,
       MAE: mae,
       RMSE: rmse,
-      R2: r2
+      R2: r2,
+      accuracy: this.calculateAccuracy(yTrue, yPred),
+      precision: this.calculatePrecision(yTrue, yPred),
+      recall: this.calculateRecall(yTrue, yPred),
+      f1Score: this.calculateF1Score(yTrue, yPred),
     };
     
     // Convertir a arrays unidimensionales
@@ -810,7 +925,7 @@ class MachineLearningPredictor {
       const nextInput = [...currentSequence[0]];
       nextInput[0] = scaledPredictionArray[0][0];  // Asumiendo que el precio de cierre es la primera característica
       
-      currentSequence = [...currentSequence.slice(1), [nextInput]];
+      currentSequence = [...currentSequence.slice(1), nextInput];
       
       // Liberar tensores
       input.dispose();
@@ -982,7 +1097,14 @@ class RiskManagement {
     stopLossPercent: number = 0.15,
     trailing: boolean = false
   ): number {
-    const stopLossLevel = entryPrice * (1 - stopLossPercent);
+    let stopLossLevel = entryPrice * (1 - stopLossPercent);
+  
+    // Si es un stop loss dinámico, ajusta el nivel
+    if (trailing) {
+      // Ejemplo: Ajustar el stop loss al 85% del precio actual
+      stopLossLevel = entryPrice * 0.85;
+    }
+  
     return stopLossLevel;
   }
 
@@ -1057,26 +1179,28 @@ class Visualization {
    */
   static plotPriceWithIndicators(df: DataFrame, title: string = "Análisis de Precio con Indicadores Técnicos"): void {
     console.log("Generando visualización de precios con indicadores técnicos...");
-    
-    // Nota: En un entorno real, aquí se implementaría la visualización con Chart.js o similar
-    // Este es un placeholder para la funcionalidad
-    
+  
+    // Validar que df.close exista
+    if (!df.close) {
+      throw new Error("La columna 'close' es requerida para generar la visualización.");
+    }
+  
     console.log(`Título: ${title}`);
     console.log(`Rango de fechas: ${df.index[0]} a ${df.index[df.index.length - 1]}`);
     console.log(`Precio inicial: ${df.close[0]}, Precio final: ${df.close[df.close.length - 1]}`);
-    
+  
     if (df.columns.includes('MA_50')) {
       console.log(`MA 50 final: ${df['MA_50'][df['MA_50'].length - 1]}`);
     }
-    
+  
     if (df.columns.includes('MA_200')) {
       console.log(`MA 200 final: ${df['MA_200'][df['MA_200'].length - 1]}`);
     }
-    
+  
     if (df.columns.includes('RSI')) {
       console.log(`RSI final: ${df['RSI'][df['RSI'].length - 1]}`);
     }
-    
+  
     if (df.columns.includes('MACD')) {
       console.log(`MACD final: ${df['MACD'][df['MACD'].length - 1]}`);
     }
@@ -1205,9 +1329,9 @@ class CryptoPredictionSystem {
   private binanceSecretKey: string | null = null;
   private coinbaseApiKey: string | null = null;
   private coinbaseSecretKey: string | null = null;
-  private priceData: PriceData | null = null;
+  private priceData: any | null = null;
+  private combinedData: any | null = null;
   private predictionResults: PredictionResult | null = null;
-  private combinedData: CombinedData | null = null;
  // private priceData: DataFrame | null;
   private onchainData: { [key: string]: DataFrame | null } | null;
   private fearGreedData: DataFrame | null;
@@ -1215,12 +1339,7 @@ class CryptoPredictionSystem {
   
   
   private modelTrained: boolean;
-  private predictionResults: {
-    metrics: MetricsResult;
-    yTrue: number[];
-    yPred: number[];
-  } | null;
-
+  
   /**
    * Inicializa el sistema de predicción de criptomonedas
    */
@@ -1247,7 +1366,7 @@ class CryptoPredictionSystem {
    * @param apiKey - API key de Glassnode
    */
   setGlassnodeApiKey(apiKey: string): void {
-    this.dataCollector.setGlassnodeApiKey(apiKey);
+    this.glassnodeApiKey = apiKey;
   }
   public setBinanceApiKeys(apiKey: string, secretKey: string): void {
     this.binanceApiKey = apiKey;
@@ -1258,17 +1377,28 @@ class CryptoPredictionSystem {
     this.coinbaseApiKey = apiKey;
     this.coinbaseSecretKey = secretKey;
   }
+  performFundamentalAnalysis(): void {
+    if (!this.fundamentalAnalyzer) {
+      console.error("El analizador fundamental no está configurado.");
+      return;
+    }
+
+    console.log("Realizando análisis fundamental...");
+    // Lógica de análisis fundamental usando this.fundamentalAnalyzer
+  }
+  
   public getPriceData(): PriceData | null {
     return this.priceData;
   }
 
-  // Método para obtener resultados de predicción
   public getPredictionResults(): PredictionResult | null {
     return this.predictionResults;
   }
+ 
   public getCombinedData(): CombinedData | null {
     return this.combinedData;
   }
+ 
 
   /**
    * Recolecta todos los datos necesarios para el análisis
@@ -1286,27 +1416,27 @@ class CryptoPredictionSystem {
   ): Promise<boolean> {
     console.log(`Recolectando datos de precios para ${symbol}...`);
     this.priceData = await this.dataCollector.getHistoricalPriceData(symbol, timeframe, limit, source);
-    
+  
     if (this.priceData === null) {
       console.log("Error al obtener datos de precios. Verificar conexión o parámetros.");
       return false;
     }
-    
+  
     console.log("Recolectando datos de índice de miedo y codicia...");
     this.fearGreedData = await this.dataCollector.getFearGreedIndex();
-    
+  
     console.log("Simulando datos de reservas en exchanges...");
     this.exchangeReservesData = this.dataCollector.getExchangeReserves();
-    
+  
     // Si se ha configurado la API key de Glassnode, obtener métricas on-chain
     if (this.dataCollector.glassnode_api_key) {
       console.log("Recolectando métricas on-chain...");
       this.onchainData = {
-        'mvrv_z_score': await this.dataCollector.getOnchainMetrics(undefined, 'mvrv_z_score'),
-        'nupl': await this.dataCollector.getOnchainMetrics(undefined, 'nupl')
+        mvrvZScore: await this.dataCollector.getOnchainMetrics(undefined, 'mvrv_z_score'),
+        nupl: await this.dataCollector.getOnchainMetrics(undefined, 'nupl'),
       };
     }
-    
+  
     console.log("Datos recolectados con éxito.");
     return true;
   }
@@ -1348,48 +1478,61 @@ class CryptoPredictionSystem {
       console.log("No hay datos de precios disponibles. Ejecutar collectData primero.");
       return false;
     }
-    
+  
     console.log("Combinando todos los datos...");
-    
+  
     // Comenzar con los datos de precios
     this.combinedData = this.priceData.copy();
-    
+  
+    // Función auxiliar para convertir índices a Date
+    const ensureDate = (value: string | number | Date): Date => {
+      if (value instanceof Date) {
+        return value;
+      } else if (typeof value === 'string' || typeof value === 'number') {
+        return new Date(value);
+      } else {
+        throw new Error(`Valor de índice no válido: ${value}`);
+      }
+    };
+  
     // Añadir índice de miedo y codicia si está disponible
     if (this.fearGreedData !== null) {
-      // Implementar merge en TypeScript
-      // Esto es una simplificación, en un caso real se necesitaría una implementación más robusta
       for (let i = 0; i < this.combinedData.index.length; i++) {
-        const date = this.combinedData.index[i];
-        const fgIndex = this.fearGreedData.index.findIndex(d => d.getTime() === date.getTime());
-        
+        const date = ensureDate(this.combinedData.index[i]);
+        const fgIndex = this.fearGreedData.index.findIndex(
+          (d) => ensureDate(d).getTime() === date.getTime()
+        );
+  
         if (fgIndex !== -1) {
           this.combinedData['fear_greed_index'][i] = this.fearGreedData['fear_greed_index'][fgIndex];
         }
       }
     }
-    
+  
     // Añadir reservas en exchanges si están disponibles
     if (this.exchangeReservesData !== null) {
-      // Similar al merge anterior
       for (let i = 0; i < this.combinedData.index.length; i++) {
-        const date = this.combinedData.index[i];
-        const erIndex = this.exchangeReservesData.index.findIndex(d => d.getTime() === date.getTime());
-        
+        const date = ensureDate(this.combinedData.index[i]);
+        const erIndex = this.exchangeReservesData.index.findIndex(
+          (d) => ensureDate(d).getTime() === date.getTime()
+        );
+  
         if (erIndex !== -1) {
           this.combinedData['exchange_reserves'][i] = this.exchangeReservesData['exchange_reserves'][erIndex];
         }
       }
     }
-    
+  
     // Añadir métricas on-chain si están disponibles
     if (this.onchainData !== null) {
       for (const [metricName, metricDf] of Object.entries(this.onchainData)) {
         if (metricDf !== null) {
-          // Similar al merge anterior
           for (let i = 0; i < this.combinedData.index.length; i++) {
-            const date = this.combinedData.index[i];
-            const metricIndex = metricDf.index.findIndex(d => d.getTime() === date.getTime());
-            
+            const date = ensureDate(this.combinedData.index[i]);
+            const metricIndex = metricDf.index.findIndex(
+              (d) => ensureDate(d).getTime() === date.getTime()
+            );
+  
             if (metricIndex !== -1) {
               this.combinedData[metricName][i] = metricDf[metricName][metricIndex];
             }
@@ -1397,7 +1540,7 @@ class CryptoPredictionSystem {
         }
       }
     }
-    
+  
     // Rellenar valores faltantes
     // Implementación simplificada de ffill y bfill
     for (const col of this.combinedData.columns) {
@@ -1410,7 +1553,7 @@ class CryptoPredictionSystem {
           this.combinedData[col][i] = lastValidValue;
         }
       }
-      
+  
       // Backward fill
       lastValidValue = null;
       for (let i = this.combinedData[col].length - 1; i >= 0; i--) {
@@ -1421,7 +1564,7 @@ class CryptoPredictionSystem {
         }
       }
     }
-    
+  
     console.log("Datos combinados con éxito.");
     return true;
   }
@@ -1464,33 +1607,40 @@ class CryptoPredictionSystem {
         sequenceLength,
         predictionDays
       );
-      
+    
       // Entrenar modelo
       const history = await this.mlPredictor.trainModel(XTrain, yTrain);
-      
+    
+      // Registrar métricas de entrenamiento (opcional)
+      console.log("Historial de entrenamiento:");
+      console.log(history.history);
+    
       // Evaluar modelo
       const [metrics, yTrue, yPred] = await this.mlPredictor.evaluateModel(XTest, yTest);
-      
+    
       console.log("Métricas de evaluación del modelo:");
       for (const [metricName, metricValue] of Object.entries(metrics)) {
         console.log(`${metricName}: ${metricValue.toFixed(4)}`);
       }
-      
+    
+      // Asignar resultados de predicción
       this.predictionResults = {
         metrics,
         yTrue,
-        yPred
+        yPred,
+        dates: this.combinedData.index.slice(-yTrue.length), // Fechas correspondientes a yTrue
+        predictions: yPred.map((pred) => parseFloat(pred.toFixed(4))), // Predicciones formateadas
       };
-      
+    
       this.modelTrained = true;
       console.log("Modelo entrenado con éxito.");
-      
+    
       // Liberar tensores
       XTrain.dispose();
       XTest.dispose();
       yTrain.dispose();
       yTest.dispose();
-      
+    
       return true;
     } catch (e) {
       console.log(`Error al entrenar el modelo: ${e}`);
@@ -1545,168 +1695,174 @@ class CryptoPredictionSystem {
       console.log("No hay datos combinados disponibles. Ejecutar combineAllData primero.");
       return null;
     }
-    
+  
     console.log("Generando señales de trading...");
-    
+  
     const signals = new danfojs.DataFrame([], { index: this.combinedData.index });
     signals['close'] = this.combinedData['close'];
-    
+  
     // Señales basadas en medias móviles
     if (this.combinedData.columns.includes('MA_50') && this.combinedData.columns.includes('MA_200')) {
       const goldenCross: boolean[] = [];
       const deathCross: boolean[] = [];
-      
+  
       for (let i = 1; i < this.combinedData.index.length; i++) {
         goldenCross.push(
           this.combinedData['MA_50'][i] > this.combinedData['MA_200'][i] &&
-          this.combinedData['MA_50'][i-1] <= this.combinedData['MA_200'][i-1]
+          this.combinedData['MA_50'][i - 1] <= this.combinedData['MA_200'][i - 1]
         );
-        
+  
         deathCross.push(
           this.combinedData['MA_50'][i] < this.combinedData['MA_200'][i] &&
-          this.combinedData['MA_50'][i-1] >= this.combinedData['MA_200'][i-1]
+          this.combinedData['MA_50'][i - 1] >= this.combinedData['MA_200'][i - 1]
         );
       }
-      
+  
       // Añadir un valor inicial para mantener la longitud
       goldenCross.unshift(false);
       deathCross.unshift(false);
-      
+  
       signals['golden_cross'] = goldenCross;
       signals['death_cross'] = deathCross;
     }
-    
+  
     // Señales basadas en RSI
     if (this.combinedData.columns.includes('RSI')) {
       signals['rsi_oversold'] = this.combinedData['RSI'].map((val: number) => val < 30);
       signals['rsi_overbought'] = this.combinedData['RSI'].map((val: number) => val > 70);
     }
-    
+  
     // Señales basadas en MACD
     if (this.combinedData.columns.includes('MACD') && this.combinedData.columns.includes('MACD_signal')) {
       const macdBullishCross: boolean[] = [];
       const macdBearishCross: boolean[] = [];
-      
+  
       for (let i = 1; i < this.combinedData.index.length; i++) {
         macdBullishCross.push(
           this.combinedData['MACD'][i] > this.combinedData['MACD_signal'][i] &&
-          this.combinedData['MACD'][i-1] <= this.combinedData['MACD_signal'][i-1]
+          this.combinedData['MACD'][i - 1] <= this.combinedData['MACD_signal'][i - 1]
         );
-        
+  
         macdBearishCross.push(
           this.combinedData['MACD'][i] < this.combinedData['MACD_signal'][i] &&
-          this.combinedData['MACD'][i-1] >= this.combinedData['MACD_signal'][i-1]
+          this.combinedData['MACD'][i - 1] >= this.combinedData['MACD_signal'][i - 1]
         );
       }
-      
+  
       // Añadir un valor inicial para mantener la longitud
       macdBullishCross.unshift(false);
       macdBearishCross.unshift(false);
-      
+  
       signals['macd_bullish_cross'] = macdBullishCross;
       signals['macd_bearish_cross'] = macdBearishCross;
     }
-    
+  
     // Señales basadas en bandas de Bollinger
     if (this.combinedData.columns.includes('BB_lower') && this.combinedData.columns.includes('BB_upper')) {
-      signals['price_below_lower_band'] = this.combinedData.index.map((_, i) => 
-        this.combinedData!['close'][i] < this.combinedData!['BB_lower'][i]
+      signals['price_below_lower_band'] = this.combinedData.index.map(
+        (_: Date | string | number, i: number) =>
+          this.combinedData!['close'][i] < this.combinedData!['BB_lower'][i]
       );
-      
-      signals['price_above_upper_band'] = this.combinedData.index.map((_, i) => 
-        this.combinedData!['close'][i] > this.combinedData!['BB_upper'][i]
+  
+      signals['price_above_upper_band'] = this.combinedData.index.map(
+        (_: Date | string | number, i: number) =>
+          this.combinedData!['close'][i] > this.combinedData!['BB_upper'][i]
       );
     }
-    
+  
     // Señales basadas en miedo y codicia si está disponible
     if (this.combinedData.columns.includes('fear_greed_index')) {
       signals['extreme_fear'] = this.combinedData['fear_greed_index'].map((val: number) => val <= 20);
       signals['extreme_greed'] = this.combinedData['fear_greed_index'].map((val: number) => val >= 80);
     }
-    
+  
     // Señales basadas en MVRV Z-Score si está disponible
     if (this.combinedData.columns.includes('mvrv_z_score')) {
       signals['mvrv_buy_zone'] = this.combinedData['mvrv_z_score'].map((val: number) => val < 0);
       signals['mvrv_sell_zone'] = this.combinedData['mvrv_z_score'].map((val: number) => val > 7);
     }
-    
+  
     // Combinar señales para generar señal final
-    signals['buy_signal'] = signals.index.map((_, i) => {
-      let buySignalCount = 0;
-      let totalSignals = 0;
-      
-      if (signals.columns.includes('golden_cross')) {
-        totalSignals++;
-        if (signals['golden_cross'][i]) buySignalCount++;
+    signals['buy_signal'] = signals.index.map(
+      (_: Date | string | number, i: number) => {
+        let buySignalCount = 0;
+        let totalSignals = 0;
+  
+        if (signals.columns.includes('golden_cross')) {
+          totalSignals++;
+          if (signals['golden_cross'][i]) buySignalCount++;
+        }
+  
+        if (signals.columns.includes('rsi_oversold')) {
+          totalSignals++;
+          if (signals['rsi_oversold'][i]) buySignalCount++;
+        }
+  
+        if (signals.columns.includes('macd_bullish_cross')) {
+          totalSignals++;
+          if (signals['macd_bullish_cross'][i]) buySignalCount++;
+        }
+  
+        if (signals.columns.includes('price_below_lower_band')) {
+          totalSignals++;
+          if (signals['price_below_lower_band'][i]) buySignalCount++;
+        }
+  
+        if (signals.columns.includes('extreme_fear')) {
+          totalSignals++;
+          if (signals['extreme_fear'][i]) buySignalCount++;
+        }
+  
+        if (signals.columns.includes('mvrv_buy_zone')) {
+          totalSignals++;
+          if (signals['mvrv_buy_zone'][i]) buySignalCount++;
+        }
+  
+        // Considerar señal de compra si más del 50% de los indicadores lo sugieren
+        return buySignalCount > 0 && (buySignalCount / totalSignals) >= 0.5;
       }
-      
-      if (signals.columns.includes('rsi_oversold')) {
-        totalSignals++;
-        if (signals['rsi_oversold'][i]) buySignalCount++;
+    );
+  
+    signals['sell_signal'] = signals.index.map(
+      (_: Date | string | number, i: number) => {
+        let sellSignalCount = 0;
+        let totalSignals = 0;
+  
+        if (signals.columns.includes('death_cross')) {
+          totalSignals++;
+          if (signals['death_cross'][i]) sellSignalCount++;
+        }
+  
+        if (signals.columns.includes('rsi_overbought')) {
+          totalSignals++;
+          if (signals['rsi_overbought'][i]) sellSignalCount++;
+        }
+  
+        if (signals.columns.includes('macd_bearish_cross')) {
+          totalSignals++;
+          if (signals['macd_bearish_cross'][i]) sellSignalCount++;
+        }
+  
+        if (signals.columns.includes('price_above_upper_band')) {
+          totalSignals++;
+          if (signals['price_above_upper_band'][i]) sellSignalCount++;
+        }
+  
+        if (signals.columns.includes('extreme_greed')) {
+          totalSignals++;
+          if (signals['extreme_greed'][i]) sellSignalCount++;
+        }
+  
+        if (signals.columns.includes('mvrv_sell_zone')) {
+          totalSignals++;
+          if (signals['mvrv_sell_zone'][i]) sellSignalCount++;
+        }
+  
+        // Considerar señal de venta si más del 50% de los indicadores lo sugieren
+        return sellSignalCount > 0 && (sellSignalCount / totalSignals) >= 0.5;
       }
-      
-      if (signals.columns.includes('macd_bullish_cross')) {
-        totalSignals++;
-        if (signals['macd_bullish_cross'][i]) buySignalCount++;
-      }
-      
-      if (signals.columns.includes('price_below_lower_band')) {
-        totalSignals++;
-        if (signals['price_below_lower_band'][i]) buySignalCount++;
-      }
-      
-      if (signals.columns.includes('extreme_fear')) {
-        totalSignals++;
-        if (signals['extreme_fear'][i]) buySignalCount++;
-      }
-      
-      if (signals.columns.includes('mvrv_buy_zone')) {
-        totalSignals++;
-        if (signals['mvrv_buy_zone'][i]) buySignalCount++;
-      }
-      
-      // Considerar señal de compra si más del 50% de los indicadores lo sugieren
-      return buySignalCount > 0 && (buySignalCount / totalSignals) >= 0.5;
-    });
-    
-    signals['sell_signal'] = signals.index.map((_, i) => {
-      let sellSignalCount = 0;
-      let totalSignals = 0;
-      
-      if (signals.columns.includes('death_cross')) {
-        totalSignals++;
-        if (signals['death_cross'][i]) sellSignalCount++;
-      }
-      
-      if (signals.columns.includes('rsi_overbought')) {
-        totalSignals++;
-        if (signals['rsi_overbought'][i]) sellSignalCount++;
-      }
-      
-      if (signals.columns.includes('macd_bearish_cross')) {
-        totalSignals++;
-        if (signals['macd_bearish_cross'][i]) sellSignalCount++;
-      }
-      
-      if (signals.columns.includes('price_above_upper_band')) {
-        totalSignals++;
-        if (signals['price_above_upper_band'][i]) sellSignalCount++;
-      }
-      
-      if (signals.columns.includes('extreme_greed')) {
-        totalSignals++;
-        if (signals['extreme_greed'][i]) sellSignalCount++;
-      }
-      
-      if (signals.columns.includes('mvrv_sell_zone')) {
-        totalSignals++;
-        if (signals['mvrv_sell_zone'][i]) sellSignalCount++;
-      }
-      
-      // Considerar señal de venta si más del 50% de los indicadores lo sugieren
-      return sellSignalCount > 0 && (sellSignalCount / totalSignals) >= 0.5;
-    });
-    
+    );
+  
     console.log("Señales de trading generadas con éxito.");
     return signals;
   }
