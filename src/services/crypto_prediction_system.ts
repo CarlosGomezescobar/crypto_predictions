@@ -6,19 +6,19 @@
 
 // Importación de librerías necesarias
 import * as danfojs from 'danfojs';
-import * as numjs from 'numjs';
-import * as Chart from 'chart.js';
+//import * as numjs from 'numjs';
+//import * as Chart from 'chart.js';
 import * as ccxt from 'ccxt';
 import axios from 'axios';
 import * as tf from '@tensorflow/tfjs';
-import * as moment from 'moment';
+//import * as moment from 'moment';
 
 
 // Definición de interfaces
 interface DataFrame {
-  index: any[];
+  index: (Date | number | string)[];
   columns: string[];
-  [key: string]: any;
+  [key: string]: unknown[]; 
 }
 
 interface OHLCVData {
@@ -28,6 +28,15 @@ interface OHLCVData {
   low: number;
   close: number;
   volume: number;
+}
+interface GlassnodeResponseItem {
+  t: number; // Timestamp en segundos
+  v: number; // Valor de la métrica
+}
+
+interface FearGreedResponseItem {
+  timestamp: number; // Timestamp en segundos
+  value: string; // Valor del índice como cadena
 }
 
 interface MetricsResult {
@@ -45,179 +54,151 @@ interface SupportResistance {
   timestamp: Date;
   price: number;
 }
-
+interface TechnicalIndicator {
+  name: string;
+  value: number;
+  signal: 'buy' | 'sell' | 'neutral';
+  description?: string;
+}
 /**
  * Clase para recolectar datos históricos de criptomonedas desde diferentes fuentes
  */
 class CryptoDataCollector {
   private binance: ccxt.Exchange;
   private coinbase: ccxt.Exchange;
-  private glassnode_api_key: string | null;
+  private glassnodeApiKey: string | null;
 
   /**
    * Inicializa el recolector de datos
    */
   constructor() {
-    this.binance = new ccxt.binance();
-    this.coinbase = new ccxt.coinbasepro();
-    this.glassnode_api_key = null; // Requiere registro en Glassnode
+    this.binance = new ccxt.binance({
+      apiKey: import.meta.env.VITE_BINANCE_API_KEY,
+      secret: import.meta.env.VITE_BINANCE_SECRET_KEY,
+    });
+    this.coinbase = new ccxt.coinbase({
+      apiKey: import.meta.env.VITE_COINBASE_API_KEY,
+      secret: import.meta.env.VITE_COINBASE_SECRET_KEY,
+    });
+    this.glassnodeApiKey = import.meta.env.VITE_GLASSNODE_API_KEY || null;
   }
 
   /**
-   * Establece la API key para Glassnode
-   * @param api_key - API key de Glassnode
+   * Función auxiliar para asegurar que el valor sea un número válido
    */
-  setGlassnodeApiKey(api_key: string): void {
-    this.glassnode_api_key = api_key;
+  private ensureNumber(value: ccxt.Num): number {
+    if (typeof value === 'number') {
+      return value;
+    } else if (typeof value === 'string') {
+      const parsed = Number(value);
+      if (isNaN(parsed)) {
+        throw new Error(`Valor inválido para timestamp: ${value}`);
+      }
+      return parsed;
+    } else {
+      throw new Error('Valor undefined o no numérico');
+    }
   }
 
   /**
    * Obtiene datos históricos de precios desde exchanges
-   * @param symbol - Par de trading (ej. 'BTC/USDT')
-   * @param timeframe - Intervalo de tiempo ('1d', '4h', '1h', etc.)
-   * @param limit - Número de registros a obtener
-   * @param source - Exchange fuente ('binance' o 'coinbase')
-   * @returns DataFrame con datos históricos
    */
   async getHistoricalPriceData(
     symbol: string = 'BTC/USDT',
-    timeframe: string = '1d',
-    limit: number = 1000,
+    timeframe: string = import.meta.env.VITE_DEFAULT_TIMEFRAME,
+    limit: number = parseInt(import.meta.env.VITE_DEFAULT_LIMIT),
     source: string = 'binance'
   ): Promise<DataFrame | null> {
     try {
       const exchange = source === 'binance' ? this.binance : this.coinbase;
       const ohlcv = await exchange.fetchOHLCV(symbol, timeframe, undefined, limit);
-      
-      const data: OHLCVData[] = ohlcv.map(item => ({
-        timestamp: new Date(item[0]),
-        open: item[1],
-        high: item[2],
-        low: item[3],
-        close: item[4],
-        volume: item[5]
+
+      const data: OHLCVData[] = ohlcv.map((item) => ({
+        timestamp: new Date(this.ensureNumber(item[0])),
+        open: item[1] as number,
+        high: item[2] as number,
+        low: item[3] as number,
+        close: item[4] as number,
+        volume: item[5] as number,
       }));
-      
-      // Crear DataFrame usando danfojs
+
       const df = new danfojs.DataFrame(data);
       df.setIndex({ column: 'timestamp' });
-      
       return df;
     } catch (e) {
-      console.log(`Error al obtener datos históricos: ${e}`);
+      console.error(`Error al obtener datos históricos: ${e}`);
       return null;
     }
   }
 
   /**
    * Obtiene métricas on-chain desde Glassnode API
-   * @param coin - Nombre de la criptomoneda ('bitcoin', 'ethereum', etc.)
-   * @param metric - Métrica a obtener ('mvrv_z_score', 'nupl', etc.)
-   * @param since - Fecha de inicio en formato ISO (ej. '2020-01-01')
-   * @returns DataFrame con métricas on-chain
    */
   async getOnchainMetrics(
     coin: string = 'bitcoin',
     metric: string = 'mvrv_z_score',
-    since: string | null = null
+    since: string | null = import.meta.env.VITE_DATA_START_DATE
   ): Promise<DataFrame | null> {
-    if (!this.glassnode_api_key) {
-      console.log("Se requiere API key de Glassnode para métricas on-chain");
+    if (!this.glassnodeApiKey) {
+      console.error('Se requiere API key de Glassnode para métricas on-chain');
       return null;
     }
-    
-    const url = `https://api.glassnode.com/v1/metrics/${metric}`;
-    const params: any = {
-      api_key: this.glassnode_api_key,
+
+    const url = `${import.meta.env.VITE_GLASSNODE_BASE_URL}/${metric}`;
+    const params: { [key: string]: string | number } = {
+      api_key: this.glassnodeApiKey,
       a: coin,
-      i: '24h'
+      i: '24h',
     };
-    
+
     if (since) {
       params.s = since;
     }
-    
+
     try {
-      const response = await axios.get(url, { params });
+      const response = await axios.get<GlassnodeResponseItem[]>(url, { params });
       if (response.status === 200) {
-        const data = response.data.map((item: any) => ({
+        const data = response.data.map((item) => ({
           timestamp: new Date(item.t * 1000),
-          [metric]: item.v
+          [metric]: item.v,
         }));
-        
+
         const df = new danfojs.DataFrame(data);
         df.setIndex({ column: 'timestamp' });
         return df;
       } else {
-        console.log(`Error en la solicitud: ${response.status}`);
+        console.error(`Error en la solicitud: ${response.status}`);
         return null;
       }
     } catch (e) {
-      console.log(`Error al obtener métricas on-chain: ${e}`);
+      console.error(`Error al obtener métricas on-chain: ${e}`);
       return null;
     }
-  }
-
-  /**
-   * Obtiene datos de reservas en exchanges (simulado, requiere API real)
-   * @param coin - Símbolo de la criptomoneda
-   * @returns DataFrame con datos de reservas
-   */
-  getExchangeReserves(coin: string = 'BTC'): DataFrame {
-    // Nota: Esta es una simulación, se requiere API real para datos precisos
-    const dates: Date[] = [];
-    const now = new Date();
-    for (let i = 0; i < 365; i++) {
-      const date = new Date(now);
-      date.setDate(now.getDate() - i);
-      dates.unshift(date);
-    }
-    
-    // Generar datos aleatorios con tendencia descendente
-    const reserves: number[] = [];
-    for (let i = 0; i < 365; i++) {
-      // Simulación de distribución normal
-      const randomValue = 2000000 + (Math.random() * 2 - 1) * 100000;
-      // Tendencia descendente
-      const trend = -200000 * (i / 364);
-      reserves.push(randomValue + trend);
-    }
-    
-    const data = dates.map((date, i) => ({
-      timestamp: date,
-      exchange_reserves: reserves[i]
-    }));
-    
-    const df = new danfojs.DataFrame(data);
-    df.setIndex({ column: 'timestamp' });
-    return df;
   }
 
   /**
    * Obtiene el índice de miedo y codicia de Alternative.me
-   * @returns DataFrame con índice de miedo y codicia
    */
   async getFearGreedIndex(): Promise<DataFrame | null> {
-    const url = "https://api.alternative.me/fng/?limit=365";
+    const url = `${import.meta.env.VITE_ALTERNATIVE_ME_BASE_URL}/fng/?limit=365`;
     try {
-      const response = await axios.get(url);
+      const response = await axios.get<{ data: FearGreedResponseItem[] }>(url);
       if (response.status === 200) {
-        const data = response.data.data.map((item: any) => ({
+        const data = response.data.data.map((item) => ({
           timestamp: new Date(item.timestamp * 1000),
-          fear_greed_index: parseInt(item.value)
+          fear_greed_index: parseInt(item.value, 10),
         }));
-        
+
         const df = new danfojs.DataFrame(data);
         df.setIndex({ column: 'timestamp' });
-        // Ordenar por fecha
         df.sortIndex({ ascending: true });
         return df;
       } else {
-        console.log(`Error en la solicitud: ${response.status}`);
+        console.error(`Error en la solicitud: ${response.status}`);
         return null;
       }
     } catch (e) {
-      console.log(`Error al obtener índice de miedo y codicia: ${e}`);
+      console.error(`Error al obtener índice de miedo y codicia: ${e}`);
       return null;
     }
   }
@@ -235,81 +216,64 @@ class TechnicalAnalysis {
    */
   static addMovingAverages(df: DataFrame, windows: number[] = [50, 200]): DataFrame {
     const result = df.copy();
-    
     for (const window of windows) {
       const maColumn = `MA_${window}`;
-      result[maColumn] = this.calculateMovingAverage(df.close, window);
+      result[maColumn] = this.calculateMovingAverage(df.close as number[], window);
     }
-    
-    return result;
-  }
-  
-  /**
-   * Calcula la media móvil de una serie
-   * @param series - Serie de datos
-   * @param window - Período para la media móvil
-   * @returns Array con la media móvil
-   */
-  private static calculateMovingAverage(series: number[], window: number): number[] {
-    const result: number[] = [];
-    
-    for (let i = 0; i < series.length; i++) {
-      if (i < window - 1) {
-        result.push(NaN);
-      } else {
-        let sum = 0;
-        for (let j = 0; j < window; j++) {
-          sum += series[i - j];
-        }
-        result.push(sum / window);
-      }
-    }
-    
     return result;
   }
 
   /**
-   * Añade el indicador RSI (Relative Strength Index) al DataFrame
+   * Calcula la media móvil de una serie
+   * @param series - Serie de datos
+   * @param window - Período para la media móvil
+   * @returns Array con los valores de la media móvil
+   */
+  private static calculateMovingAverage(series: number[], window: number): number[] {
+    const movingAverage: number[] = [];
+    for (let i = 0; i < series.length; i++) {
+      if (i < window - 1) {
+        movingAverage.push(NaN); // No hay suficientes datos para calcular la media
+      } else {
+        const slice = series.slice(i - window + 1, i + 1);
+        const avg = slice.reduce((sum, val) => sum + val, 0) / window;
+        movingAverage.push(avg);
+      }
+    }
+    return movingAverage;
+  }
+
+  /**
+   * Añade el índice de fuerza relativa (RSI) al DataFrame
    * @param df - DataFrame con datos de precios
-   * @param window - Período para el cálculo del RSI
+   * @param period - Período para el RSI
    * @returns DataFrame con RSI añadido
    */
-  static addRSI(df: DataFrame, window: number = 14): DataFrame {
+  static addRSI(df: DataFrame, period: number = 14): DataFrame {
     const result = df.copy();
-    const close = df.close;
-    const delta: number[] = [];
-    
-    // Calcular diferencias
-    for (let i = 0; i < close.length; i++) {
-      if (i === 0) {
-        delta.push(0);
-      } else {
-        delta.push(close[i] - close[i - 1]);
-      }
-    }
-    
-    // Separar ganancias y pérdidas
-    const gain: number[] = delta.map(d => d > 0 ? d : 0);
-    const loss: number[] = delta.map(d => d < 0 ? -d : 0);
-    
-    // Calcular medias móviles de ganancias y pérdidas
-    const avgGain = this.calculateMovingAverage(gain, window);
-    const avgLoss = this.calculateMovingAverage(loss, window);
-    
-    // Calcular RS y RSI
-    const rs: number[] = [];
+    const closePrices = df.close as number[];
     const rsi: number[] = [];
-    
-    for (let i = 0; i < avgGain.length; i++) {
-      if (isNaN(avgGain[i]) || isNaN(avgLoss[i]) || avgLoss[i] === 0) {
-        rs.push(NaN);
-        rsi.push(NaN);
+
+    for (let i = 0; i < closePrices.length; i++) {
+      if (i === 0) {
+        rsi.push(NaN); // No hay datos previos para calcular el RSI
+        continue;
+      }
+
+      const gains = Math.max(0, closePrices[i] - closePrices[i - 1]);
+      const losses = Math.max(0, closePrices[i - 1] - closePrices[i]);
+
+      if (i < period) {
+        rsi.push(NaN); // No hay suficientes datos para calcular el RSI
       } else {
-        rs.push(avgGain[i] / avgLoss[i]);
-        rsi.push(100 - (100 / (1 + rs[i])));
+        const avgGain = rsi.slice(i - period, i).reduce((sum, val) => sum + val, 0) / period;
+        const avgLoss = rsi.slice(i - period, i).reduce((sum, val) => sum + val, 0) / period;
+
+        const rs = avgGain / (avgLoss || 1); // Evitar división por cero
+        rsi.push(100 - 100 / (1 + rs));
       }
     }
-    
+
     result['RSI'] = rsi;
     return result;
   }
@@ -317,191 +281,137 @@ class TechnicalAnalysis {
   /**
    * Añade bandas de Bollinger al DataFrame
    * @param df - DataFrame con datos de precios
-   * @param window - Período para el cálculo de las bandas
-   * @param numStd - Número de desviaciones estándar
+   * @param window - Período para las bandas de Bollinger
+   * @param numStdDev - Número de desviaciones estándar
    * @returns DataFrame con bandas de Bollinger añadidas
    */
-  static addBollingerBands(df: DataFrame, window: number = 20, numStd: number = 2): DataFrame {
+  static addBollingerBands(df: DataFrame, window: number = 20, numStdDev: number = 2): DataFrame {
     const result = df.copy();
-    
-    // Calcular media móvil
-    result['BB_middle'] = this.calculateMovingAverage(df.close, window);
-    
-    // Calcular desviación estándar
-    const std = this.calculateStandardDeviation(df.close, window, result['BB_middle']);
-    result['BB_std'] = std;
-    
-    // Calcular bandas superior e inferior
-    result['BB_upper'] = result['BB_middle'].map((val: number, i: number) => 
-      isNaN(val) ? NaN : val + (std[i] * numStd)
-    );
-    
-    result['BB_lower'] = result['BB_middle'].map((val: number, i: number) => 
-      isNaN(val) ? NaN : val - (std[i] * numStd)
-    );
-    
-    return result;
-  }
-  
-  /**
-   * Calcula la desviación estándar móvil
-   * @param series - Serie de datos
-   * @param window - Período para la desviación estándar
-   * @param mean - Media móvil precalculada
-   * @returns Array con la desviación estándar
-   */
-  private static calculateStandardDeviation(series: number[], window: number, mean: number[]): number[] {
-    const result: number[] = [];
-    
-    for (let i = 0; i < series.length; i++) {
-      if (i < window - 1 || isNaN(mean[i])) {
-        result.push(NaN);
+    const closePrices = df.close as number[];
+
+    const sma = this.calculateMovingAverage(closePrices, window);
+    const stdDev: number[] = [];
+
+    for (let i = 0; i < closePrices.length; i++) {
+      if (i < window - 1) {
+        stdDev.push(NaN); // No hay suficientes datos para calcular la desviación estándar
       } else {
-        let sumSquaredDiff = 0;
-        for (let j = 0; j < window; j++) {
-          sumSquaredDiff += Math.pow(series[i - j] - mean[i], 2);
-        }
-        result.push(Math.sqrt(sumSquaredDiff / window));
+        const slice = closePrices.slice(i - window + 1, i + 1);
+        const mean = sma[i];
+        const variance =
+          slice.reduce((sum, val) => sum + (val - mean) ** 2, 0) / window;
+        stdDev.push(Math.sqrt(variance));
       }
     }
-    
+
+    const upperBand = sma.map((val, i) => val + numStdDev * (stdDev[i] || 0));
+    const lowerBand = sma.map((val, i) => val - numStdDev * (stdDev[i] || 0));
+
+    result['BB_upper'] = upperBand;
+    result['BB_lower'] = lowerBand;
     return result;
   }
 
   /**
-   * Añade el indicador MACD (Moving Average Convergence Divergence) al DataFrame
+   * Añade el MACD (Moving Average Convergence Divergence) al DataFrame
    * @param df - DataFrame con datos de precios
-   * @param fast - Período para la media móvil rápida
-   * @param slow - Período para la media móvil lenta
-   * @param signal - Período para la línea de señal
+   * @param fastPeriod - Período rápido
+   * @param slowPeriod - Período lento
+   * @param signalPeriod - Período de señal
    * @returns DataFrame con MACD añadido
    */
-  static addMACD(df: DataFrame, fast: number = 12, slow: number = 26, signal: number = 9): DataFrame {
+  static addMACD(
+    df: DataFrame,
+    fastPeriod: number = 12,
+    slowPeriod: number = 26,
+    signalPeriod: number = 9
+  ): DataFrame {
     const result = df.copy();
-    
-    // Calcular EMA rápida y lenta
-    result['EMA_fast'] = this.calculateEMA(df.close, fast);
-    result['EMA_slow'] = this.calculateEMA(df.close, slow);
-    
-    // Calcular MACD
-    result['MACD'] = result['EMA_fast'].map((val: number, i: number) => 
-      isNaN(val) || isNaN(result['EMA_slow'][i]) ? NaN : val - result['EMA_slow'][i]
-    );
-    
-    // Calcular señal MACD
-    result['MACD_signal'] = this.calculateEMA(result['MACD'], signal);
-    
-    // Calcular histograma MACD
-    result['MACD_histogram'] = result['MACD'].map((val: number, i: number) => 
-      isNaN(val) || isNaN(result['MACD_signal'][i]) ? NaN : val - result['MACD_signal'][i]
-    );
-    
+    const closePrices = df.close as number[];
+
+    const fastEMA = this.calculateExponentialMovingAverage(closePrices, fastPeriod);
+    const slowEMA = this.calculateExponentialMovingAverage(closePrices, slowPeriod);
+
+    const macdLine = fastEMA.map((fast, i) => fast - slowEMA[i]);
+    const signalLine = this.calculateExponentialMovingAverage(macdLine, signalPeriod);
+    const histogram = macdLine.map((macd, i) => macd - signalLine[i]);
+
+    result['MACD_line'] = macdLine;
+    result['MACD_signal'] = signalLine;
+    result['MACD_histogram'] = histogram;
     return result;
   }
-  
+
   /**
-   * Calcula la media móvil exponencial
+   * Calcula la Media Móvil Exponencial (EMA)
    * @param series - Serie de datos
-   * @param span - Período para la EMA
-   * @returns Array con la EMA
+   * @param period - Período para la EMA
+   * @returns Array con los valores de la EMA
    */
-  private static calculateEMA(series: number[], span: number): number[] {
-    const result: number[] = [];
-    const alpha = 2 / (span + 1);
-    
+  private static calculateExponentialMovingAverage(series: number[], period: number): number[] {
+    const ema: number[] = [];
+    const smoothingFactor = 2 / (period + 1);
+
     for (let i = 0; i < series.length; i++) {
       if (i === 0) {
-        result.push(series[i]);
-      } else if (isNaN(series[i]) || isNaN(result[i - 1])) {
-        result.push(NaN);
+        ema.push(series[i]); // El primer valor es igual al primer dato
       } else {
-        result.push(alpha * series[i] + (1 - alpha) * result[i - 1]);
+        const prevEma = ema[i - 1];
+        const currentEma = series[i] * smoothingFactor + prevEma * (1 - smoothingFactor);
+        ema.push(currentEma);
       }
     }
-    
-    return result;
+
+    return ema;
   }
 
   /**
-   * Calcula niveles de retroceso de Fibonacci basados en máximos y mínimos recientes
-   * @param df - DataFrame con datos de precios
-   * @param trend - Tendencia actual ('uptrend' o 'downtrend')
-   * @returns Diccionario con niveles de Fibonacci
+   * Genera señales de trading basadas en indicadores técnicos
+   * @param df - DataFrame con datos de precios e indicadores
+   * @returns Array de señales de trading
    */
-  static addFibonacciLevels(df: DataFrame, trend: string = 'uptrend'): FibonacciLevels {
-    let priceMin: number;
-    let priceMax: number;
-    
-    if (trend === 'uptrend') {
-      // Para tendencia alcista, calculamos retrocesos desde mínimo a máximo
-      priceMin = Math.min(...df.low.filter((val: number) => !isNaN(val)));
-      priceMax = Math.max(...df.high.filter((val: number) => !isNaN(val)));
-    } else {
-      // Para tendencia bajista, calculamos extensiones desde máximo a mínimo
-      priceMin = Math.max(...df.high.filter((val: number) => !isNaN(val)));
-      priceMax = Math.min(...df.low.filter((val: number) => !isNaN(val)));
-    }
-    
-    const diff = priceMax - priceMin;
-    
-    const levels: FibonacciLevels = {
-      '0.0': priceMin,
-      '0.236': priceMin + 0.236 * diff,
-      '0.382': priceMin + 0.382 * diff,
-      '0.5': priceMin + 0.5 * diff,
-      '0.618': priceMin + 0.618 * diff,
-      '0.786': priceMin + 0.786 * diff,
-      '1.0': priceMax
-    };
-    
-    return levels;
-  }
+  static generateTradingSignals(df: DataFrame): TechnicalIndicator[] {
+    const signals: TechnicalIndicator[] = [];
 
-  /**
-   * Identifica niveles de soporte y resistencia
-   * @param df - DataFrame con datos de precios
-   * @param window - Ventana para identificar máximos y mínimos locales
-   * @returns Tupla de listas de niveles de soporte y resistencia
-   */
-  static identifySupportResistance(df: DataFrame, window: number = 10): [SupportResistance[], SupportResistance[]] {
-    const supports: SupportResistance[] = [];
-    const resistances: SupportResistance[] = [];
-    
-    for (let i = window; i < df.low.length - window; i++) {
-      // Verificar si es un mínimo local (soporte)
-      let isSupport = true;
-      for (let j = 1; j <= window; j++) {
-        if (df.low[i] > df.low[i-j] || df.low[i] > df.low[i+j]) {
-          isSupport = false;
-          break;
-        }
-      }
-      
-      if (isSupport) {
-        supports.push({
-          timestamp: df.index[i],
-          price: df.low[i]
-        });
-      }
-      
-      // Verificar si es un máximo local (resistencia)
-      let isResistance = true;
-      for (let j = 1; j <= window; j++) {
-        if (df.high[i] < df.high[i-j] || df.high[i] < df.high[i+j]) {
-          isResistance = false;
-          break;
-        }
-      }
-      
-      if (isResistance) {
-        resistances.push({
-          timestamp: df.index[i],
-          price: df.high[i]
-        });
-      }
+    // Señal basada en RSI
+    const rsi = df.RSI as number[];
+    const lastRsi = rsi[rsi.length - 1];
+    if (lastRsi > 70) {
+      signals.push({
+        name: 'RSI',
+        value: lastRsi,
+        signal: 'sell',
+        description: 'RSI indica sobrecompra',
+      });
+    } else if (lastRsi < 30) {
+      signals.push({
+        name: 'RSI',
+        value: lastRsi,
+        signal: 'buy',
+        description: 'RSI indica sobreventa',
+      });
     }
-    
-    return [supports, resistances];
+
+    // Señal basada en MACD
+    const macdHistogram = df.MACD_histogram as number[];
+    const lastHistogram = macdHistogram[macdHistogram.length - 1];
+    if (lastHistogram > 0) {
+      signals.push({
+        name: 'MACD',
+        value: lastHistogram,
+        signal: 'buy',
+        description: 'MACD cruza hacia arriba',
+      });
+    } else if (lastHistogram < 0) {
+      signals.push({
+        name: 'MACD',
+        value: lastHistogram,
+        signal: 'sell',
+        description: 'MACD cruza hacia abajo',
+      });
+    }
+
+    return signals;
   }
 }
 
