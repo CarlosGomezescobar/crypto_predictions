@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { PredictionService } from '../services/PredictionService';
+import PredictionService from '../services/PredictionService';
+
 import { 
   OHLCVData, 
   PredictionResult, 
@@ -34,7 +35,7 @@ export function usePrediction() {
   const [trainingOptions, setTrainingOptions] = useState<TrainingOptions>(defaultTrainingOptions);
   
   // Instancia del servicio de predicción
-  const predictionService = new PredictionService();
+  const predictionService = new PredictionService.getInstance();
   
   // Usar caché para datos históricos
   const { 
@@ -54,7 +55,7 @@ export function usePrediction() {
     } else {
       fetchHistoricalData(selectedAsset, selectedTimeFrame);
     }
-  }, [selectedAsset, selectedTimeFrame]);
+  }, [selectedAsset, selectedTimeFrame,]);
   
   // Función para obtener datos históricos
   const fetchHistoricalData = useCallback(async (asset: string, timeFrame: string) => {
@@ -74,7 +75,7 @@ export function usePrediction() {
     } finally {
       setIsLoadingHistorical(false);
     }
-  }, [addNotification]);
+  }, [addNotification, predictionService]);
   
   // Función para entrenar modelo y generar predicciones
   const trainModel = useCallback(async (options?: Partial<TrainingOptions>) => {

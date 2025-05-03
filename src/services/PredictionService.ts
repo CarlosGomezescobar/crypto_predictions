@@ -1,5 +1,5 @@
 import { CryptoPredictionSystem } from '../services/crypto_prediction_system';
-import { PriceData, PredictionResult, CombinedData } from '../types';
+import { PriceData, CombinedData } from '../types';
 
 // Configuración de las claves API desde variables de entorno
 const glassnodeApiKey = import.meta.env.VITE_GLASSNODE_API_KEY;
@@ -8,6 +8,19 @@ const binanceSecretKey = import.meta.env.VITE_BINANCE_SECRET_KEY;
 const coinbaseApiKey = import.meta.env.VITE_COINBASE_API_KEY;
 const coinbaseSecretKey = import.meta.env.VITE_COINBASE_SECRET_KEY;
 
+interface MetricsResult {
+  MSE: number;
+  MAE: number;
+  RMSE: number;
+  R2: number;
+}
+interface PredictionResult {
+  metrics: MetricsResult;
+  yTrue: number[];
+  yPred: number[];
+  dates: Date[]; 
+  predictions: number[];
+}
 // Clase singleton para gestionar la instancia del sistema de predicción
 class PredictionService {
   private static instance: PredictionService;
@@ -172,10 +185,6 @@ class PredictionService {
    * @returns Resultados de predicción o null si no están disponibles
    */
   public getPredictionResults(): PredictionResult | null {
-    if (!this.isInitialized) {
-      return null;
-    }
-
     return this.cryptoSystem.getPredictionResults();
   }
 }
