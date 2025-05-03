@@ -34,20 +34,20 @@ export function usePrediction() {
   const [modelMetrics, setModelMetrics] = useState<ModelMetrics | null>(null);
   const [trainingOptions, setTrainingOptions] = useState<TrainingOptions>(defaultTrainingOptions);
   
-  // Instancia del servicio de predicción
-  const predictionService = new PredictionService.getInstance();
+  // Instancia del servicio de predicc
+  const predictionService = PredictionService.getInstance();
   
   // Usar caché para datos históricos
   const { 
     data: cachedHistoricalData, 
-    isLoading: isCacheLoading, 
-    refresh: refreshCache 
+    isLoading: isCacheLoading,
+    //refresh: refreshCache // Mantener si planeas usarlo
   } = useDataCache<OHLCVData>(
     `historical_${selectedAsset}_${selectedTimeFrame}`,
     () => predictionService.fetchHistoricalData(selectedAsset, selectedTimeFrame),
     30 * 60 * 1000 // 30 minutos
   );
-  
+
   // Cargar datos históricos cuando cambia el activo o intervalo de tiempo
   useEffect(() => {
     if (cachedHistoricalData && !isCacheLoading) {
@@ -55,8 +55,24 @@ export function usePrediction() {
     } else {
       fetchHistoricalData(selectedAsset, selectedTimeFrame);
     }
-  }, [selectedAsset, selectedTimeFrame,]);
-  
+  }, [selectedAsset, selectedTimeFrame]);
+
+  const createNotification = (
+    type: 'error' | 'warning' | 'info' | 'success',
+    message: string
+  ) => ({
+    id: generateUniqueId(),
+    type,
+    message,
+    timestamp: new Date().toISOString(), // Formatear como cadena ISO
+    read: false,
+  });
+
+  // Función para generar IDs únicos
+  function generateUniqueId(): string {
+    return Math.random().toString(36).substr(2, 9);
+  }
+
   // Función para obtener datos históricos
   const fetchHistoricalData = useCallback(async (asset: string, timeFrame: string) => {
     setIsLoadingHistorical(true);
@@ -66,10 +82,9 @@ export function usePrediction() {
       return data;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      addNotification({
-        type: 'error',
-        message: `Error al obtener datos históricos: ${errorMessage}`
-      });
+      addNotification(
+        createNotification('error', `Error al obtener datos históricos: ${errorMessage}`)
+      );
       console.error('Error al obtener datos históricos:', error);
       return null;
     } finally {
@@ -80,69 +95,53 @@ export function usePrediction() {
   // Función para entrenar modelo y generar predicciones
   const trainModel = useCallback(async (options?: Partial<TrainingOptions>) => {
     if (!historicalData) {
-      addNotification({
-        type: 'warning',
-        message: 'No hay datos históricos disponibles para entrenar el modelo'
-      });
+      addNotification(
+        createNotification('warning', 'No hay datos históricos disponibles para entrenar el modelo')
+      );
       return null;
     }
-    
+
     const updatedOptions = { ...trainingOptions, ...options };
     setTrainingOptions(updatedOptions);
-    
+
     setIsPredicting(true);
     try {
-      addNotification({
-        type: 'info',
-        message: 'Entrenando modelo de predicción...'
-      });
-      
+      addNotification(createNotification('info', 'Entrenando modelo de predicción...'));
+
       const startTime = performance.now();
-      const { predictions, metrics } = await predictionService.trainAndPredict(
-        historicalData,
-        updatedOptions
-      );
+      const { predictions, metrics } = await predictionService.trainAndPredict(historicalData, updatedOptions);
       const endTime = performance.now();
-      
+
       // Actualizar métricas del modelo
       const updatedMetrics: ModelMetrics = {
         ...metrics,
         trainedAt: new Date().toISOString(),
-        trainingTime: (endTime - startTime) / 1000
+        trainingTime: (endTime - startTime) / 1000,
       };
       setModelMetrics(updatedMetrics);
-      
-      // Generar señales de trading basadas en predicciones
-      const tradingSignals = await predictionService.generateTradingSignals(
-        historicalData,
-        predictions
-      );
-      
+
       // Actualizar datos de predicción
       const predictionResult: PredictionResult = {
         ...predictions,
-        tradingSignals
       };
       setPredictionData(predictionResult);
-      
-      addNotification({
-        type: 'success',
-        message: `Modelo entrenado con éxito. RMSE: ${metrics.rmse.toFixed(4)}`
-      });
-      
+
+      addNotification(
+        createNotification('success', `Modelo entrenado con éxito. RMSE: ${metrics.rmse.toFixed(4)}`)
+      );
+
       return predictionResult;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      addNotification({
-        type: 'error',
-        message: `Error al entrenar el modelo: ${errorMessage}`
-      });
+      addNotification(
+        createNotification('error', `Error al entrenar el modelo: ${errorMessage}`)
+      );
       console.error('Error al entrenar el modelo:', error);
       return null;
     } finally {
       setIsPredicting(false);
     }
-  }, [historicalData, trainingOptions, addNotification]);
+  }, [addNotification, historicalData, trainingOptions, predictionService]);
   
   // Función para actualizar opciones de entrenamiento
   const updateTrainingOptions = useCallback((options: Partial<TrainingOptions>) => {
@@ -155,13 +154,12 @@ export function usePrediction() {
   // Función para obtener predicciones sin entrenar (usando modelo guardado)
   const getPredictions = useCallback(async () => {
     if (!historicalData) {
-      addNotification({
-        type: 'warning',
-        message: 'No hay datos históricos disponibles para generar predicciones'
-      });
+      addNotification(
+        createNotification('warning', 'No hay datos históricos disponibles para generar predicciones')
+      );
       return null;
     }
-    
+
     setIsPredicting(true);
     try {
       const predictions = await predictionService.getPredictions(historicalData);
@@ -169,10 +167,9 @@ export function usePrediction() {
       return predictions;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      addNotification({
-        type: 'error',
-        message: `Error al generar predicciones: ${errorMessage}`
-      });
+      addNotification(
+        createNotification('error', `Error al generar predicciones: ${errorMessage}`)
+      );
       console.error('Error al generar predicciones:', error);
       return null;
     } finally {
@@ -183,22 +180,20 @@ export function usePrediction() {
   // Función para obtener señales de trading
   const getTradingSignals = useCallback(async (): Promise<TradingSignal[] | null> => {
     if (!historicalData) {
-      addNotification({
-        type: 'warning',
-        message: 'No hay datos históricos disponibles para generar señales'
-      });
+      addNotification(
+        createNotification('warning', 'No hay datos históricos disponibles para generar señales')
+      );
       return null;
     }
-    
+
     try {
       const signals = await predictionService.getTradingSignals(historicalData);
       return signals;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      addNotification({
-        type: 'error',
-        message: `Error al generar señales de trading: ${errorMessage}`
-      });
+      addNotification(
+        createNotification('error', `Error al generar señales de trading: ${errorMessage}`)
+      );
       console.error('Error al generar señales de trading:', error);
       return null;
     }
